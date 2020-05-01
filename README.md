@@ -57,7 +57,7 @@ Remeber to go to portal.azure.com for the app and Grant Permission
 
 ## Creating the Token Encryption and Signing Keys
 
-The [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) then continues with that you need to create your token encryption and signing keys. This isn't the most tedious job and doing it by hand is quite fast, but if you
+The [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) then continues with that you need to create your token encryption and signing keys. This isn't the most tedious job and doing it by hand is quite fast, but if you want to automate it, the following two lines will do it for you. The AppID and AppKey parameters are from the app you created in the step above.
 
 ```Powershell
 .\aadb2c-policy-key-create.ps1 -AppID "aa8..8e" -AppKey "ErX...nw=" -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
@@ -70,7 +70,7 @@ key created: B2C_1A_TokenEncryptionKeyContainer
 ## Create the IdentityExperienceFramework and ProxyIdentityExperienceFramework apps
 
 For B2C Custom Policies, there exists two special apps that helps the policy engine communicate with the tenant. The app IdentityExperienceFramework is registered as a webapp and ProxyIdentityExperienceFramework as a native client.
-This is the second step after creating the key and is explained in the docs under section [Register Identity Experience Framework applications](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#register-identity-experience-framework-applications)
+This is the second step after creating the keys and is explained in the docs under section [Register Identity Experience Framework applications](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#register-identity-experience-framework-applications)
 
 To automatically create the two apps, run the script [aadb2c-create-ief-apps.ps1](aadb2c-create-ief-apps.ps1) and then go into the portal and grant the permissions for them respectively.
 
@@ -112,7 +112,7 @@ If you just want to test drive the below step, enable the Facebook Claims Provid
 
 ```Powershell
 md demo
-..\aadb2c-create-new-policy-project.ps1 -ConfigPath ..\b2cAppSettings_cljunglabb2c.json -UploadSecrets $true
+..\aadb2c-create-new-policy-project.ps1 -ConfigPath ..\b2cAppSettings.json -UploadSecrets $true
 *******************************************************************************
 * Configuration
 *******************************************************************************
@@ -150,9 +150,9 @@ key created: B2C_1A_FacebookSecret
 *******************************************************************************
 * Uploading Custom Policies to B2C
 *******************************************************************************
-Tenant:         cljunglabb2c.onmicrosoft.com
+Tenant:         yourtenant.onmicrosoft.com
 TenantID:       91b..78
-Authenticating as App B2C-Graph-App, AppID 4b770144-3e2b-40cf-98de-d98c3287b710
+Authenticating as App B2C-Graph-App, AppID 4b7...10
 Uploading policy B2C_1A_demo2_TrustFrameworkBase...
 91b..78
 Uploading policy B2C_1A_demo2_TrustFrameworkExtensions...
