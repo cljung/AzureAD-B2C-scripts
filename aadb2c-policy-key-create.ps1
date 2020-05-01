@@ -74,3 +74,4 @@ if ( "rsa" -eq $KeyType ) {
 } 
 
 $resp = Invoke-RestMethod -Method POST -Uri $url -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -Body $body -ContentType "application/json"
+write-output "key created: $KeyContainerName"

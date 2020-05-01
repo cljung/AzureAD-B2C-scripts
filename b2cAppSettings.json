@@ -27,7 +27,7 @@
     },
 
     "UxCustomization": {
-        "Enabled": true,
+        "Enabled": false,
         "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-ui-customization"
     },
 
@@ -35,49 +35,55 @@
         {
             "Enabled": true,
             "Name": "facebook",
-            "client_id": "...id...",
-            "client_secret": "",
+            "client_id": "1234567890",
+            "client_secret": "1234567890",
+            "use": "sig",
             "SecretName": "FacebookSecret",
             "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/identity-provider-facebook"
         },
         {
-            "Enabled": true,
+            "Enabled": false,
             "Name": "msa",
             "client_id": "...guid...",
             "client_secret": "...secret...",
+            "use": "sig",
             "SecretName": "MicrosoftAccountSecret",
             "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/identity-provider-microsoft-account-custom"
         },
         {
-            "Enabled": true,
+            "Enabled": false,
             "Name": "google",
             "client_id": "...guid...",
             "client_secret": "...secret...",
+            "use": "sig",
             "SecretName": "GoogleSecret",
             "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/identity-provider-google-custom"
         },
         {
-            "Enabled": true,
+            "Enabled": false,
             "Name": "twitter",
             "client_id": "...guid...",
             "client_secret": "...secret...",
+            "use": "enc",
             "SecretName": "TwitterSecret",
             "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/identity-provider-twitter-custom"
         },
         {
-            "Enabled": true,
+            "Enabled": false,
             "Name": "amazon",
             "client_id": "...guid...",
             "client_secret": "...secret...",
+            "use": "sig",
             "SecretName": "AmazonSecret",
             "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/identity-provider-amazon-custom"
         },
         {
-            "Enabled": true,
+            "Enabled": false,
             "Name": "azuread",
             "client_id": "...guid...",
             "client_secret": "...secret...",
-            "SecretName": "Fawltytowers2Secret",
+            "use": "sig",
+            "SecretName": "Yourdomain2Secret",
             "DomainName": "yourdomain.com",
             "docLink": "https://docs.microsoft.com/en-us/azure/active-directory-b2c/identity-provider-azure-ad-single-tenant-custom"
         }

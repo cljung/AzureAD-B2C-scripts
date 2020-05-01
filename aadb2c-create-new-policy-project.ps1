@@ -72,7 +72,7 @@ foreach( $cp in $b2cAppSettings.ClaimsProviders ) {
     if ( $true -eq $cp.Enabled ) {
         & $PSScriptRoot\aadb2c-add-claimsprovider.ps1 -i $cp.Name -c $cp.client_id -a $cp.DomainName
         if ( $true -eq $UploadSecrets -and ($null -ne $cp.client_secret -or "" -ne $cp.client_secret) ) {
-            & $PSScriptRoot\aadb2c-policy-key-create.ps1 -n $cp.SecretName -s $cp.client_secret -t "secret"
+            & $PSScriptRoot\aadb2c-policy-key-create.ps1 -n $cp.SecretName -s $cp.client_secret -y "secret" -u $cp.use
         }
     }
 }

@@ -69,8 +69,17 @@ write-host "`nCreating WebApp $DisplayName..."
 $app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "http://$TenantName/$DisplayName" -ReplyUrls @("https://$DisplayName") -RequiredResourceAccess $reqAccess
 write-output "AppID`t`t$($app.AppId)`nObjectID:`t$($App.ObjectID)"
 
-write-host "Creating ServicePrincipal..."
+write-host "`nCreating ServicePrincipal..."
 $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
 write-host "AppID`t`t$($sp.AppId)`nObjectID:`t$($sp.ObjectID)"
+
+write-host "`nCreating App Key / Secret / client_secret - please remember this value and keep it safe"
+$AppSecret = New-AzureADApplicationPasswordCredential -ObjectId $App.ObjectID
+
+write-output "Copy-n-paste this to your b2cAppSettings.json file `
+`"ClientCredentials`": { `
+    `"client_id`": `"$($App.AppId)`", `
+    `"client_secret`": `"$($AppSecret.Value)`" `
+},"
 
 write-output "Remeber to go to portal.azure.com for the app and Grant Permissions"
