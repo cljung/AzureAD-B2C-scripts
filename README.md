@@ -110,6 +110,10 @@ If you just want to test drive the below step, enable the Facebook Claims Provid
 
 ## Automated deployment the of Custom Policy to your tenant
 
+The script [aadb2c-create-new-policy-project.ps1](aadb2c-create-new-policy-project.ps1) loads the b2cAppSettings.json config file and then invokes the other scripts as needed. For instance, the first step is invoking [aadb2c-prep-starter-pack.ps1](aadb2c-prep-starter-pack.ps1) which downloads the starter pack files from github and modifies them so they reference your tenant. The policy ids are also changed so that the prefix name you use (default is the name of your folder - demo in my case) is added to your policy ids. B2C_1A_signup_signin becomes B2C_1A_demo_signup_signin, etc. This is quite handy since it stops you from overwriting each others policies during development.
+
+When adding features to you configuration the file ***TrustFrameworkBase.xml*** is never changed, all work is done via editing ***TrustFrameworkExtensions.xml***. The script [aadb2c-add-claimsprovider.ps1](aadb2c-add-claimsprovider.ps1), which adds different Claims Providers, adds quite a lot of xml depending on how many providers you use. If you want UX Customization, the script [aadb2c-policy-ux-customize.ps1](aadb2c-policy-ux-customize.ps1) will copy the ContentDefinition elements from the Base file, modify them and insert them into the Extensions file. All is done as specified in the documentation, but the automated version means you have the policies ready in ~10 seconds rather than spending a hour editing the files. 
+
 ```Powershell
 md demo
 ..\aadb2c-create-new-policy-project.ps1 -ConfigPath ..\b2cAppSettings.json -UploadSecrets $true
@@ -153,15 +157,15 @@ key created: B2C_1A_FacebookSecret
 Tenant:         yourtenant.onmicrosoft.com
 TenantID:       91b..78
 Authenticating as App B2C-Graph-App, AppID 4b7...10
-Uploading policy B2C_1A_demo2_TrustFrameworkBase...
+Uploading policy B2C_1A_demo_TrustFrameworkBase...
 91b..78
-Uploading policy B2C_1A_demo2_TrustFrameworkExtensions...
+Uploading policy B2C_1A_demo_TrustFrameworkExtensions...
 91b..78
-Uploading policy B2C_1A_demo2_PasswordReset...
+Uploading policy B2C_1A_demo_PasswordReset...
 91b..78
-Uploading policy B2C_1A_demo2_ProfileEdit...
+Uploading policy B2C_1A_demo_ProfileEdit...
 91b..78
-Uploading policy B2C_1A_demo2_signup_signin...
+Uploading policy B2C_1A_demo_signup_signin...
 91b..78
 ```
 
@@ -177,3 +181,4 @@ The basic steps are:
 4. Save/Register
 
 Then, click on your Custom Policy, select the dummy webapp and select Run
+
