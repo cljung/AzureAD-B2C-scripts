@@ -1,15 +1,17 @@
 param (
-    [Parameter(Mandatory=$true)][Alias('p')][string]$PolicyPath = "",
-    [Parameter(Mandatory=$true)][Alias('t')][string]$TenantName = "",
-    [Parameter(Mandatory=$true)][Alias('a')][string]$AppID = "",
-    [Parameter(Mandatory=$true)][Alias('k')][string]$AppKey = ""
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = ""
     )
 
 $oauth = $null
+if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
 
 # enumerate all XML files in the specified folders and create a array of objects with info we need
 Function EnumPoliciesFromPath( [string]$PolicyPath ) {
-    $files = get-childitem -path $policypath -name | Where-Object {! $_.PSIsContainer }
+    $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
     $arr = @()
     foreach( $file in $files ) {
         #write-output "Reading Policy XML file $file..."
@@ -53,7 +55,7 @@ Function UploadPolicy( [string]$PolicyId, [string]$PolicyData) {
     write-host "Uploading policy $PolicyId..."
     $url = "https://graph.microsoft.com/beta/trustFramework/policies/$PolicyId/`$value"
     $resp = Invoke-RestMethod -Method PUT -Uri $url -ContentType "application/xml" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -Body $PolicyData
-    write-output $resp.TrustFrameworkPolicy
+    write-output $resp.TrustFrameworkPolicy.TenantObjectId
 }
 
 # either try and use the tenant name passed or grab the tenant from current session
@@ -93,13 +95,16 @@ if ( $null -eq $app ) {
     write-host "`Authenticating as App $($app.DisplayName), AppID $AppID"
 }
 <##>
+if ( "" -eq $PolicyPath ) {
+    $PolicyPath = (get-location).Path
+}
 
 # load the XML Policy files
 $arr = EnumPoliciesFromPath $PolicyPath
 
 # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/directory-assign-admin-roles#b2c-user-flow-administrator
 # get an access token for the B2C Graph App
-$oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com";client_id=$AppID;client_secret=$AppKey}
+$oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
 $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
 
 # upload policies - start with those who have no BasePolicyId dependency (null)
