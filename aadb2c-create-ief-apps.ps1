@@ -40,17 +40,14 @@ Function CreateApplication( [string]$DisplayName, [string]$TenantName, [bool]$Na
     return $app
 }
 
-$req1 = CreateRequiredResourceAccess -ResourceAppId "00000002-0000-0000-c000-000000000000" -ResourceAccessId "311a71cc-e848-46a1-bdf8-97ff7156d8e6" -Type "Scope"
+$AzureAdGraphApiAppID = "00000002-0000-0000-c000-000000000000"
+$scopeUserRead = "311a71cc-e848-46a1-bdf8-97ff7156d8e6" # https://graph.windows.net/User.Read
+
+$req1 = CreateRequiredResourceAccess -ResourceAppId $AzureAdGraphApiAppID -ResourceAccessId $scopeUserRead -Type "Scope"
 
 $appIEF = CreateApplication -DisplayName $DisplayName -TenantName $tenantName -RequiredResourceAccess @($req1) -NativeApp $false
 
-$req2 = CreateRequiredResourceAccess -ResourceAppId $appIEF.AppId -ResourceAccessId "784b6254-7ada-4028-88e4-71eed5676dde" -Type "Scope"
+$req2 = CreateRequiredResourceAccess -ResourceAppId $appIEF.AppId -ResourceAccessId $appIEF.Oauth2Permissions.Id -Type "Scope"
 
 $appPIEF = CreateApplication -DisplayName "Proxy$DisplayName" -TenantName $tenantName -RequiredResourceAccess @($req1,$req2) -NativeApp $true
 
-$appExt = Get-AzureADApplication -SearchString "b2c-extensions-app"
-if ( $null -eq $appExt ) {
-    write-host "VSCode extension for B2C isn't installed"
-} else {
-    write-host "`nb2c-extensions-app`nAppID`t`t$($appExt.AppId)`nObjectID:`t$($AppExt.ObjectID)"
-}
