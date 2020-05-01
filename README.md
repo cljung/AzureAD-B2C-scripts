@@ -168,6 +168,7 @@ Uploading policy B2C_1A_demo_ProfileEdit...
 Uploading policy B2C_1A_demo_signup_signin...
 91b..78
 ```
+The script [aadb2c-upload-policy.ps1](aadb2c-upload-policy.ps1), which is responsible for uploading the B2C Custom Policies, is smart enough to look through the inheritance chain between the different xml files and will upload them in the correct order, ie start with Base, continue with Extensions and then the rest.
 
 ## Test drive the Custom Policy
 
