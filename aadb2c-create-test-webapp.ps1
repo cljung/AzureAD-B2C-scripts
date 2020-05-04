@@ -1,6 +1,12 @@
 param (
-    [Parameter(Mandatory=$true)][Alias('n')][string]$DisplayName = "Test-WebApp"
+    [Parameter(Mandatory=$true)][Alias('n')][string]$DisplayName = "Test-WebApp",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = ""
     )
+
+$oauth = $null
+if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
 
 $tenant = Get-AzureADTenantDetail
 $tenantName = $tenant.VerifiedDomains[0].Name
@@ -38,5 +44,11 @@ $app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "http://
 
 write-output "Creating ServicePrincipal $DisplayName"
 $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
+
+$oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="https://graph.microsoft.com/.default Application.ReadWrite.All"}
+$oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+$body = @{ SignInAudience = "AzureADandPersonalMicrosoftAccount" }
+$apiUrl = "https://graph.microsoft.com/v1.0/applications/$($app.objectId)"
+Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method PATCH -Body $($body | convertto-json) -ContentType "application/json"
 
 & $PSScriptRoot\aadb2c-app-grant-permission.ps1 -n $DisplayName

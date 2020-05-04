@@ -2,6 +2,20 @@
 
 This github repo contains a set of powershell script that help you to quickly setup an Azure AD B2C tenant and Custom Policies. If you are to set up a B2C tenant, you need to follow the guide on how to [Create an Azure Active Directory B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant). This leaves you with a basic tenant, but in order to install the Custom Policies, described in the documentation page [Get started with custom policies in Azure Active Directory B2C](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#custom-policy-starter-pack), there are quite a few steps to complete. Although it is not complicated, it takes some time and involves som copy-n-pase, flickering between documentation pages, before you can test your first login. The powershell scripts in this repo are created with the aim of minimizing the time from setting up a B2C tenant to your first login.
 
+## Summary
+
+With the scripts in this repository, you can create a fully functional B2C Custom Policy environment in seconds via the commands 
+
+```Powershell
+.\aadb2c-create-graph-app.ps1 -n "B2C-Graph-App"
+.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
+.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
+.\aadb2c-create-ief-apps.ps1
+md demo; cd demo
+..\aadb2c-create-new-policy-project.ps1 -ConfigPath ..\b2cAppSettings.json -UploadSecrets $true
+..\aadb2c-create-test-webapp.ps1 -n "Test-WebApp"
+```
+
 ## Prerequisites
 
 As mentioned, you need to [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) which involves creating the resource in [portal.azure.com](https://portal.azure.com)
@@ -50,6 +64,8 @@ Copy-n-paste this to your b2cAppSettings.json file
     "client_id": "aa8...8e",
     "client_secret": "ErX...nw="
 }
+setting ENVVAR B2CAppID=aa8..8e
+setting ENVVAR B2CAppKey=ErX...nw=
 Remeber to go to portal.azure.com for the app and Grant Permission
 ```
 
@@ -57,14 +73,12 @@ Remeber to go to portal.azure.com for the app and Grant Permission
 
 ## Creating the Token Encryption and Signing Keys
 
-The [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) then continues with that you need to create your token encryption and signing keys. This isn't the most tedious job and doing it by hand is quite fast, but if you want to automate it, the following two lines will do it for you. The AppID and AppKey parameters are from the app you created in the step above.
+The [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) then continues with that you need to create your token encryption and signing keys. This isn't the most tedious job and doing it by hand is quite fast, but if you want to automate it, the following two lines will do it for you. 
 
 ```Powershell
-.\aadb2c-policy-key-create.ps1 -AppID "aa8..8e" -AppKey "ErX...nw=" -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
-key created: B2C_1A_TokenSigningKeyContainer
-.\aadb2c-policy-key-create.ps1 -AppID "aa8..8e" -AppKey "ErX...nw=" -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
-key created: B2C_1A_TokenEncryptionKeyContainer
+.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
 
+.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
 ```
 
 ## Create the IdentityExperienceFramework and ProxyIdentityExperienceFramework apps
