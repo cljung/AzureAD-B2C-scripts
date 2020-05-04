@@ -72,7 +72,7 @@ key created: B2C_1A_TokenEncryptionKeyContainer
 For B2C Custom Policies, there exists two special apps that helps the policy engine communicate with the tenant. The app IdentityExperienceFramework is registered as a webapp and ProxyIdentityExperienceFramework as a native client.
 This is the second step after creating the keys and is explained in the docs under section [Register Identity Experience Framework applications](https://docs.microsoft.com/en-us/azure/active-directory-b2c/custom-policy-get-started?tabs=applications#register-identity-experience-framework-applications)
 
-To automatically create the two apps, run the script [aadb2c-create-ief-apps.ps1](aadb2c-create-ief-apps.ps1) and then go into the portal and grant the permissions for them respectively.
+To automatically create the two apps, run the script [aadb2c-create-ief-apps.ps1](aadb2c-create-ief-apps.ps1). The script will automatically grant the permissions for the apps.
 
 ```Powershell
 .\aadb2c-create-ief-apps.ps1
@@ -88,6 +88,42 @@ Creating NativeApp ProxyIdentityExperienceFramework...
 Creating ServicePrincipal...
 AppID           33c..ef
 ObjectID:       5c8..c4
+
+Granting Windows Azure Active Directory - User.Read  to IdentityExperienceFramework
+
+@odata.context : https://graph.microsoft.com/beta/$metadata#oauth2PermissionGrants/$entity
+clientId       : 331..52
+consentType    : AllPrincipals
+expiryTime     : 2022-05-04T09:49:29Z
+id             : ytg..y0
+principalId    :
+resourceId     : 176..2d
+scope          : User.Read
+startTime      : 2020-05-04T09:49:29Z
+
+Getting Tenant info...
+Tenant:         yourtenant.onmicrosoft.com
+Granting IdentityExperienceFramework - user_impersonation  to ProxyIdentityExperienceFramework
+@odata.context : https://graph.microsoft.com/beta/$metadata#oauth2PermissionGrants/$entity
+clientId       : 5c8..c4
+consentType    : AllPrincipals
+expiryTime     : 2022-05-04T09:49:31Z
+id             : wiO..dk
+principalId    :
+resourceId     : 331..52
+scope          : user_impersonation
+startTime      : 2020-05-04T09:49:31Z
+
+Granting Windows Azure Active Directory - user_impersonation User.Read  to ProxyIdentityExperienceFramework
+@odata.context : https://graph.microsoft.com/beta/$metadata#oauth2PermissionGrants/$entity
+clientId       : 5c8..c4
+consentType    : AllPrincipals
+expiryTime     : 2022-05-04T09:49:31Z
+id             : wiO..y0
+principalId    :
+resourceId     : 176..2d
+scope          : user_impersonation User.Read
+startTime      : 2020-05-04T09:49:31Z
 ```
 
 ## Edit you b2cAppSettings.json file to configure what features you want
@@ -172,14 +208,13 @@ The script [aadb2c-upload-policy.ps1](aadb2c-upload-policy.ps1), which is respon
 
 ## Test drive the Custom Policy
 
-To test the Custom Policy you need to register a dummy webapp in the portal that you can use. THis is described in the tutorial for how to register an app and can be found here under section [Register a web application](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-register-applications?tabs=app-reg-preview#register-a-web-application).
+To test the Custom Policy you need to register a dummy webapp in the portal that you can use. This is described in the tutorial for how to register an app and can be found here under section [Register a web application](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-register-applications?tabs=app-reg-preview#register-a-web-application).
 
-The basic steps are:
+To automatically provision the app, run this script
 
-1. Give it a Name
-2. Select Accounts in any organizational directory or any identity provider.
-3. Set Redirect URI to https://jwt.ms
-4. Save/Register
+```Powershell
+..\aadb2c-create-test-webapp.ps1 -n "Test-WebApp"
+```
 
-Then, click on your Custom Policy, select the dummy webapp and select Run
+It will create a webapp that redirects to [https://jwt.ms](https://jwt.ms) so you can test the B2C policy
 

@@ -51,3 +51,6 @@ $req2 = CreateRequiredResourceAccess -ResourceAppId $appIEF.AppId -ResourceAcces
 
 $appPIEF = CreateApplication -DisplayName "Proxy$DisplayName" -TenantName $tenantName -RequiredResourceAccess @($req1,$req2) -NativeApp $true
 
+& $PSScriptRoot\aadb2c-app-grant-permission.ps1 -n $DisplayName
+
+& $PSScriptRoot\aadb2c-app-grant-permission.ps1 -n "Proxy$DisplayName"
