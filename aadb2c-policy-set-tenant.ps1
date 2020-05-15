@@ -1,24 +1,11 @@
 param (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
-    [Parameter(Mandatory=$true)][Alias('x')][string]$PolicyPrefix = "",
-    [Parameter(Mandatory=$false)][Alias('b')][string]$PolicyType = "SocialAndLocalAccounts",
     [Parameter(Mandatory=$false)][string]$IefAppName = "IdentityExperienceFramework",
-    [Parameter(Mandatory=$false)][string]$IefProxyAppName = "ProxyIdentityExperienceFramework"    
+    [Parameter(Mandatory=$false)][string]$IefProxyAppName = "ProxyIdentityExperienceFramework",    
+    [Parameter(Mandatory=$false)][string]$ExtAppDisplayName = "b2c-extensions-app"     # name of add for b2c extension attributes
     )
 
-[Net.ServicePointManager]::SecurityProtocol = "tls12, tls11, tls"
-
-$urlStarterPackBase = "https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master" #/SocialAndLocalAccounts/TrustFrameworkBase.xml
-
-function DownloadFile ( $Url, $LocalPath ) {
-    $p = $Url -split("/")
-    $filename = $p[$p.Length-1]
-    $LocalFile = "$LocalPath\$filename"
-    Write-Host "Downloading $Url to $LocalFile"
-    $webclient = New-Object System.Net.WebClient
-    $webclient.DownloadFile($Url,$LocalFile)
-}
 # process all XML Policy files and update elements and attributes to our values
 Function ProcessPolicyFiles( [string]$PolicyPath ) {
     $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
@@ -26,13 +13,10 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
         write-host "Modifying Policy file $file..."
         $PolicyFile = (Join-Path -Path $PolicyPath -ChildPath $file)
         [xml]$xml = Get-Content $PolicyFile
-        $xml.TrustFrameworkPolicy.PolicyId = $xml.TrustFrameworkPolicy.PolicyId.Replace("B2C_1A_", $PolicyPrefix)
+        $xml.TrustFrameworkPolicy.PublicPolicyUri = $xml.TrustFrameworkPolicy.PublicPolicyUri.Replace( $xml.TrustFrameworkPolicy.TenantId, $TenantName)
         $xml.TrustFrameworkPolicy.TenantId = $TenantName
-        $xml.TrustFrameworkPolicy.PublicPolicyUri = $xml.TrustFrameworkPolicy.PublicPolicyUri.Replace( "yourtenant.onmicrosoft.com", $TenantName)
-        $xml.TrustFrameworkPolicy.PublicPolicyUri = $xml.TrustFrameworkPolicy.PublicPolicyUri.Replace("B2C_1A_", $PolicyPrefix)
         if ( $null -ne $xml.TrustFrameworkPolicy.BasePolicy ) {
             $xml.TrustFrameworkPolicy.BasePolicy.TenantId = $TenantName
-            $xml.TrustFrameworkPolicy.BasePolicy.PolicyId = $xml.TrustFrameworkPolicy.BasePolicy.PolicyId.Replace("B2C_1A_", $PolicyPrefix)
         }
         if ( $xml.TrustFrameworkPolicy.PolicyId -imatch "TrustFrameworkExtensions" ) {
             foreach( $cp in $xml.TrustFrameworkPolicy.ClaimsProviders.ClaimsProvider ) {
@@ -54,6 +38,20 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
                             }
                             if ( "resource_id" -eq $ic.ClaimTypeReferenceId ) {
                                 $ic.DefaultValue = $AppIdIEF
+                            }
+                        }
+                    }
+                }
+                if ( "" -ne $ExtAppDisplayName -and "Azure Active Directory" -eq $cp.DisplayName ) {
+                    foreach( $tp in $cp.TechnicalProfiles ) {
+                        foreach( $metadata in $tp.TechnicalProfile.Metadata ) {
+                            foreach( $item in $metadata.Item ) {
+                                if ( "ClientId" -eq $item.Key ) {
+                                    $item.'#text' = $appExt.AppId
+                                }
+                                if ( "ApplicationObjectId" -eq $item.Key ) {
+                                    $item.'#text' = $appExt.objectId
+                                }
                             }
                         }
                     }
@@ -96,21 +94,14 @@ write-host "Getting AppID's for IdentityExperienceFramework / ProxyIdentityExper
 $AppIdIEF = (Get-AzureADApplication -Filter "DisplayName eq '$iefAppName'").AppId
 $AppIdIEFProxy = (Get-AzureADApplication -Filter "DisplayName eq '$iefProxyAppName'").AppId
 
-if ( ! $PolicyPrefix.StartsWith("B2C_1A_") ) {
-    $PolicyPrefix = "B2C_1A_$PolicyPrefix" 
-}
-if ( ! $PolicyPrefix.EndsWith("_") ) {
-    $PolicyPrefix = "$($PolicyPrefix)_" 
+if ( "" -ne $ExtAppDisplayName ) {    
+    write-output "Getting AppID's for $ExtAppDisplayName"
+    $appExt = Get-AzureADApplication -SearchString $ExtAppDisplayName
 }
 
 if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
-DownloadFile "$urlStarterPackBase/$PolicyType/TrustFrameworkBase.xml" $PolicyPath
-DownloadFile "$urlStarterPackBase/$PolicyType/TrustFrameworkExtensions.xml" $PolicyPath
-DownloadFile "$urlStarterPackBase/$PolicyType/SignUpOrSignin.xml" $PolicyPath
-DownloadFile "$urlStarterPackBase/$PolicyType/PasswordReset.xml" $PolicyPath
-DownloadFile "$urlStarterPackBase/$PolicyType/ProfileEdit.xml" $PolicyPath
 # 
 ProcessPolicyFiles $PolicyPath
 
