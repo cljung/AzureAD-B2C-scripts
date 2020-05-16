@@ -35,6 +35,7 @@ if ( $ext.TrustFrameworkPolicy.ClaimsProviders.InnerXml -imatch $tpId ) {
 
 # if no client_id given, use the standard b2c-extensions-app
 if ( "" -eq $client_id ) {
+    if ( "" -eq $AppDisplayName ) { $AppDisplayName = "b2c-extensions-app"}
     write-output "Using $AppDisplayName"
     $appExt = Get-AzureADApplication -SearchString $AppDisplayName
     $client_id = $appExt.AppId   

@@ -1,11 +1,18 @@
 param (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
+    [Parameter(Mandatory=$false)][Alias('x')][string]$PolicyPrefix = "",
     [Parameter(Mandatory=$false)][string]$IefAppName = "IdentityExperienceFramework",
     [Parameter(Mandatory=$false)][string]$IefProxyAppName = "ProxyIdentityExperienceFramework",    
     [Parameter(Mandatory=$false)][string]$ExtAppDisplayName = "b2c-extensions-app"     # name of add for b2c extension attributes
     )
 
+Function UpdatePolicyId([string]$PolicyId) {
+    if ( "" -ne $PolicyPrefix ) {
+        $PolicyId = $PolicyId.Replace("B2C_1A_", $PolicyPrefix)
+    }
+    return $PolicyId
+}
 # process all XML Policy files and update elements and attributes to our values
 Function ProcessPolicyFiles( [string]$PolicyPath ) {
     $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
@@ -13,10 +20,12 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
         write-host "Modifying Policy file $file..."
         $PolicyFile = (Join-Path -Path $PolicyPath -ChildPath $file)
         [xml]$xml = Get-Content $PolicyFile
-        $xml.TrustFrameworkPolicy.PublicPolicyUri = $xml.TrustFrameworkPolicy.PublicPolicyUri.Replace( $xml.TrustFrameworkPolicy.TenantId, $TenantName)
+        $xml.TrustFrameworkPolicy.PolicyId = UpdatePolicyId( $xml.TrustFrameworkPolicy.PolicyId )
+        $xml.TrustFrameworkPolicy.PublicPolicyUri = UpdatePolicyId( $xml.TrustFrameworkPolicy.PublicPolicyUri.Replace( $xml.TrustFrameworkPolicy.TenantId, $TenantName) )
         $xml.TrustFrameworkPolicy.TenantId = $TenantName
         if ( $null -ne $xml.TrustFrameworkPolicy.BasePolicy ) {
             $xml.TrustFrameworkPolicy.BasePolicy.TenantId = $TenantName
+            $xml.TrustFrameworkPolicy.BasePolicy.PolicyId = UpdatePolicyId( $xml.TrustFrameworkPolicy.BasePolicy.PolicyId )
         }
         if ( $xml.TrustFrameworkPolicy.PolicyId -imatch "TrustFrameworkExtensions" ) {
             foreach( $cp in $xml.TrustFrameworkPolicy.ClaimsProviders.ClaimsProvider ) {
@@ -101,6 +110,12 @@ if ( "" -ne $ExtAppDisplayName ) {
 
 if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
+}
+if ( ! $PolicyPrefix.StartsWith("B2C_1A_") ) {
+    $PolicyPrefix = "B2C_1A_$PolicyPrefix" 
+}
+if ( ! $PolicyPrefix.EndsWith("_") ) {
+    $PolicyPrefix = "$($PolicyPrefix)_" 
 }
 # 
 ProcessPolicyFiles $PolicyPath
