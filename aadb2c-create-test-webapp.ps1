@@ -40,7 +40,7 @@ foreach( $resApp in $requiredResourceAccess ) {
 }
 
 write-output "Creating application $DisplayName"
-$app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "http://$TenantName/$DisplayName" -ReplyUrls @("https://jwt.ms") -RequiredResourceAccess $reqAccess
+$app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "https://$TenantName/$DisplayName" -ReplyUrls @("https://jwt.ms") -RequiredResourceAccess $reqAccess -Oauth2AllowImplicitFlow $true
 
 write-output "Creating ServicePrincipal $DisplayName"
 $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
@@ -56,18 +56,8 @@ $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsof
 $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
 
 $apiUrl = "https://graph.microsoft.com/v1.0/applications/$($app.objectId)"
-$body = @"
-{
-    "SignInAudience": "AzureADandPersonalMicrosoftAccount",
-    "web": {
-        "implicitGrantSettings":  {
-                                    "enableAccessTokenIssuance":  true,
-                                    "enableIdTokenIssuance":  true
-                                }
-    }
-}
-"@
-Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method PATCH -Body $body -ContentType "application/json"
+$body = @{ SignInAudience = "AzureADandPersonalMicrosoftAccount" }
+Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method PATCH -Body ($body | ConvertTo-json) -ContentType "application/json"
 
 & $PSScriptRoot\aadb2c-app-grant-permission.ps1 -n $DisplayName
 
