@@ -9,6 +9,14 @@ if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
     
+if ( "" -eq $client_id ) {
+  $client_id = ($global:b2cAppSettings.ClaimsProviders | where {$_.Name -eq $IdpName }).client_id
+}
+
+if ( "" -eq $AadTenantName -and "azuread" -eq $IdpName.ToLower() ) {
+  $AadTenantName = ($global:b2cAppSettings.ClaimsProviders | where {$_.Name -eq $IdpName }).DomainName
+}
+
 [xml]$base =Get-Content -Path "$PolicyPath\TrustFrameworkBase.xml" -Raw
 [xml]$ext =Get-Content -Path "$PolicyPath\TrustFrameworkExtensions.xml" -Raw
 
