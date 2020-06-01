@@ -4,8 +4,15 @@ param (
     [Parameter(Mandatory=$false)][Alias('x')][string]$PolicyPrefix = "",
     [Parameter(Mandatory=$false)][string]$IefAppName = "IdentityExperienceFramework",
     [Parameter(Mandatory=$false)][string]$IefProxyAppName = "ProxyIdentityExperienceFramework",    
-    [Parameter(Mandatory=$false)][string]$ExtAppDisplayName = "b2c-extensions-app"     # name of add for b2c extension attributes
+    [Parameter(Mandatory=$false)][string]$ExtAppDisplayName = "b2c-extensions-app",     # name of add for b2c extension attributes
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
+
+if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
+    $isWinOS = $false
+} else {
+    $isWinOS = $true
+}
 
 Function UpdatePolicyId([string]$PolicyId) {
     if ( "" -ne $PolicyPrefix ) {
@@ -75,20 +82,30 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
 $tenantID = ""
 if ( "" -eq $TenantName ) {
     write-host "Getting Tenant info..."
-    $tenant = Get-AzureADTenantDetail
+    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        $tenant = (az account show | ConvertFrom-json)
+    } else {
+        $tenant = Get-AzureADTenantDetail
+    }
     if ( $null -eq $tenant ) {
         write-host "Not logged in to a B2C tenant"
         exit 1
     }
-    $tenantName = $tenant.VerifiedDomains[0].Name
-    $tenantID = $tenant.ObjectId
+    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        $tenantName = $tenant.tenantId
+        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    } else {
+        $tenantName = $tenant.VerifiedDomains[0].Name
+        $tenantID = $tenant.ObjectId
+    }
 } else {
     if ( !($TenantName -imatch ".onmicrosoft.com") ) {
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
     $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
     $tenantID = $resp.authorization_endpoint.Split("/")[3]    
-}
+}  
 <##>
 
 <##>
@@ -100,12 +117,20 @@ write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
 
 <##>
 write-host "Getting AppID's for $IefAppName / $IefProxyAppName"
-$AppIdIEF = (Get-AzureADApplication -Filter "DisplayName eq '$iefAppName'").AppId
-$AppIdIEFProxy = (Get-AzureADApplication -Filter "DisplayName eq '$iefProxyAppName'").AppId
-
-if ( "" -ne $ExtAppDisplayName ) {    
-    write-output "Getting AppID's for $ExtAppDisplayName"
-    $appExt = Get-AzureADApplication -SearchString $ExtAppDisplayName
+if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    $AppIdIEF = (az ad app list --display-name $iefAppName | ConvertFrom-json).AppId
+    $AppIdIEFProxy = (az ad app list --display-name $iefProxyAppName | ConvertFrom-json).AppId
+    if ( "" -ne $ExtAppDisplayName ) {    
+        write-output "Getting AppID's for $ExtAppDisplayName"
+        $appExt = (az ad app list --display-name $ExtAppDisplayName | ConvertFrom-json)
+    }
+} else {
+    $AppIdIEF = (Get-AzureADApplication -Filter "DisplayName eq '$iefAppName'").AppId
+    $AppIdIEFProxy = (Get-AzureADApplication -Filter "DisplayName eq '$iefProxyAppName'").AppId  
+    if ( "" -ne $ExtAppDisplayName ) {    
+        write-output "Getting AppID's for $ExtAppDisplayName"
+        $appExt = Get-AzureADApplication -SearchString $ExtAppDisplayName
+    }
 }
 
 if ( "" -eq $PolicyPath ) {

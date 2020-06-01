@@ -2,12 +2,18 @@ param (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
-    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = ""
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 
 $oauth = $null
 if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
 if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
+    $isWinOS = $false
+} else {
+    $isWinOS = $true
+}
 
 # invoke the Graph REST API to upload the Policy
 Function DeletePolicy( [string]$PolicyId) {
@@ -23,20 +29,30 @@ Function DeletePolicy( [string]$PolicyId) {
 $tenantID = ""
 if ( "" -eq $TenantName ) {
     write-host "Getting Tenant info..."
-    $tenant = Get-AzureADTenantDetail
+    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        $tenant = (az account show | ConvertFrom-json)
+    } else {
+        $tenant = Get-AzureADTenantDetail
+    }
     if ( $null -eq $tenant ) {
         write-host "Not logged in to a B2C tenant"
         exit 1
     }
-    $tenantName = $tenant.VerifiedDomains[0].Name
-    $tenantID = $tenant.ObjectId
+    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        $tenantName = $tenant.tenantId
+        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    } else {
+        $tenantName = $tenant.VerifiedDomains[0].Name
+        $tenantID = $tenant.ObjectId
+    }
 } else {
     if ( !($TenantName -imatch ".onmicrosoft.com") ) {
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
     $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
     $tenantID = $resp.authorization_endpoint.Split("/")[3]    
-}
+}  
 <##>
 
 <##>
@@ -47,7 +63,11 @@ if ( "" -eq $tenantID ) {
 write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
 
 # check the B2C Graph App passed
-$app = Get-AzureADApplication -Filter "AppID eq '$AppID'"
+if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    $app = (az ad app show --id $AppID | ConvertFrom-json)
+} else {
+    $app = Get-AzureADApplication -Filter "AppID eq '$AppID'"
+}
 if ( $null -eq $app ) {
     write-host "App not found in B2C tenant: $AppID"
     exit 3

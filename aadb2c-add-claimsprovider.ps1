@@ -1,7 +1,7 @@
 param (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
     [Parameter(Mandatory=$true)][Alias('i')][string]$IdpName = "",    # google, twitter, amazon, linkedid, AzureAD
-    [Parameter(Mandatory=$true)][Alias('c')][string]$client_id = "",    # client_id/AppId o the IdpName
+    [Parameter(Mandatory=$false)][Alias('c')][string]$client_id = "",    # client_id/AppId o the IdpName
     [Parameter(Mandatory=$false)][Alias('a')][string]$AadTenantName = ""    # contoso.com or contoso
     )
    
