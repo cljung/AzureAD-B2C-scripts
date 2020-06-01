@@ -56,10 +56,10 @@ $params = $params.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20")
 
 $url = "https://{0}.b2clogin.com/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $tenantName.Split(".")[0], $tenantName, $PolicyId, $params
 
+write-host "Starting Browser`n$url"
 
 if ( !$isWinOS) {
-    write-host "open your browser and paste in the below url:`n`n$url"
+    [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
 } else {
-    write-host "Starting Browser`n$url"
     [System.Diagnostics.Process]::Start("chrome.exe","--incognito --new-window $url")
 }
