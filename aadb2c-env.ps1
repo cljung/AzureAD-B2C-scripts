@@ -49,7 +49,8 @@ if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
     if ( !($TenantName -imatch ".onmicrosoft.com") ) {
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
-    $tenantID = $tenant.tenantId
+    $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+    $tenantID = $resp.authorization_endpoint.Split("/")[3]
 } else {
     try {
         $tenant = Get-AzureADTenantDetail

@@ -8,6 +8,7 @@ param (
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 
+if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
 if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
     $isWinOS = $false
 } else {
@@ -80,34 +81,8 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
 
 <##>
 $tenantID = ""
-if ( "" -eq $TenantName ) {
-    write-host "Getting Tenant info..."
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
-        $tenant = (az account show | ConvertFrom-json)
-    } else {
-        $tenant = Get-AzureADTenantDetail
-    }
-    if ( $null -eq $tenant ) {
-        write-host "Not logged in to a B2C tenant"
-        exit 1
-    }
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
-        $tenantName = $tenant.tenantId
-        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
-        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
-    } else {
-        $tenantName = $tenant.VerifiedDomains[0].Name
-        $tenantID = $tenant.ObjectId
-    }
-} else {
-    if ( !($TenantName -imatch ".onmicrosoft.com") ) {
-        $TenantName = $TenantName + ".onmicrosoft.com"
-    }
-    $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
-    $tenantID = $resp.authorization_endpoint.Split("/")[3]    
-}  
-<##>
-
+$resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+$tenantID = $resp.authorization_endpoint.Split("/")[3]    
 <##>
 if ( "" -eq $tenantID ) {
     write-host "Unknown Tenant"
