@@ -17,7 +17,7 @@ if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
     
-[xml]$ext =Get-Content -Path "$PolicyPath\$PolicyFile" -Raw
+[xml]$ext =Get-Content -Path "$PolicyPath/$PolicyFile" -Raw
 
 $tpId = "AAD-Common"
 $claimsProviderXml=@"
@@ -60,4 +60,4 @@ $claimsProviderXml = $claimsProviderXml.Replace("{objectId}", $objectId)
 
 $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml = $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml + $claimsProviderXml
 
-$ext.Save("$PolicyPath\TrustFrameworkExtensions.xml")
+$ext.Save("$PolicyPath/TrustFrameworkExtensions.xml")
