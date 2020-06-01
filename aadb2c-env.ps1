@@ -1,10 +1,17 @@
 param (
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('n')][string]$PolicyPrefix = "",  
     [Parameter(Mandatory=$false)][Alias('k')][boolean]$KeepPolicyIds = $False,  
     [Parameter(Mandatory=$false)][Alias('c')][string]$ConfigPath = "" 
     )
 
+if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
+    $isWinOS = $false
+} else {
+    $isWinOS = $true
+}
+    
 if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
@@ -32,15 +39,28 @@ if ( $null -ne $b2cAppSettings.AzureStorageAccount ) {
     $global:storageConnectString="DefaultEndpointsProtocol=https;AccountName=$uxStorageAccount;AccountKey=$uxStorageAccountKey;EndpointSuffix=$EndpointSuffix"    
 }
 
-try {
+if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    try {
+        $tenant = (az account show | ConvertFrom-json)
+    } catch {
+        write-output "Not logged in to a B2C tenant.`n Please run az cli -t {tenantId} or `n$PSScriptRoot\aadb2c-login.ps1 -t `"yourtenant`"`n`n"
+        exit 1
+    }
+    if ( !($TenantName -imatch ".onmicrosoft.com") ) {
+        $TenantName = $TenantName + ".onmicrosoft.com"
+    }
+    $tenantID = $tenant.tenantId
+} else {
+    try {
         $tenant = Get-AzureADTenantDetail
-} catch {
-    write-output "Not logged in to a B2C tenant.`n Please run Connect-AzAccount -t {tenantId} or `n$PSScriptRoot\aadb2c-login.ps1 -t `"yourtenant`"`n`n"
-    exit 1
+    } catch {
+        write-output "Not logged in to a B2C tenant.`n Please run Connect-AzAccount -t {tenantId} or `n$PSScriptRoot\aadb2c-login.ps1 -t `"yourtenant`"`n`n"
+        exit 1
+    }
+    $tenantName = $tenant.VerifiedDomains[0].Name
+    $tenantID = $tenant.ObjectId
 }
-$tenantName = $tenant.VerifiedDomains[0].Name
 $global:tenantName = $tenantName
-$tenantID = $tenant.ObjectId
 $global:tenantID = $tenantID
 
 write-output "Config File    :`t$ConfigPath"
