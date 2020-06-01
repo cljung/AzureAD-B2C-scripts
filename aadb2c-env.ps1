@@ -39,6 +39,10 @@ if ( $null -ne $b2cAppSettings.AzureStorageAccount ) {
     $global:storageConnectString="DefaultEndpointsProtocol=https;AccountName=$uxStorageAccount;AccountKey=$uxStorageAccountKey;EndpointSuffix=$EndpointSuffix"    
 }
 
+if ( "" -eq $TenantName ) {
+    $TenantName = $b2cAppSettings.TenantName
+}
+
 if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
     try {
         $tenant = (az account show | ConvertFrom-json)
@@ -56,6 +60,10 @@ if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
         $tenant = Get-AzureADTenantDetail
     } catch {
         write-output "Not logged in to a B2C tenant.`n Please run Connect-AzAccount -t {tenantId} or `n$PSScriptRoot\aadb2c-login.ps1 -t `"yourtenant`"`n`n"
+        exit 1
+    }
+    if ( $tenantName -ne $tenant.VerifiedDomains[0].Name) {
+        write-output "Logged in to the wrong B2C tenant.`nTarget:`t$TenantName`nLogged in to:`t$($tenant.VerifiedDomains[0].Name)`n`n"
         exit 1
     }
     $tenantName = $tenant.VerifiedDomains[0].Name
