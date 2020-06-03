@@ -37,6 +37,7 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
         }
         if ( $xml.TrustFrameworkPolicy.PolicyId -imatch "TrustFrameworkExtensions" ) {
             foreach( $cp in $xml.TrustFrameworkPolicy.ClaimsProviders.ClaimsProvider ) {
+                $cp.DisplayName
                 if ( "Local Account SignIn" -eq $cp.DisplayName ) {
                     foreach( $tp in $cp.TechnicalProfiles ) {
                         foreach( $metadata in $tp.TechnicalProfile.Metadata ) {
@@ -59,15 +60,17 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
                         }
                     }
                 }
-                if ( "" -ne $ExtAppDisplayName -and "Azure Active Directory" -eq $cp.DisplayName ) {
+                if ( "" -ne $ExtAppDisplayName ) {
                     foreach( $tp in $cp.TechnicalProfiles ) {
-                        foreach( $metadata in $tp.TechnicalProfile.Metadata ) {
-                            foreach( $item in $metadata.Item ) {
-                                if ( "ClientId" -eq $item.Key ) {
-                                    $item.'#text' = $appExt.AppId
-                                }
-                                if ( "ApplicationObjectId" -eq $item.Key ) {
-                                    $item.'#text' = $appExt.objectId
+                        if ( "AAD-Common" -eq $tp.TechnicalProfile.Id[0] ) {
+                            foreach( $metadata in $tp.TechnicalProfile.Metadata ) {
+                                foreach( $item in $metadata.Item ) {
+                                    if ( "ClientId" -eq $item.Key ) {
+                                        $item.'#text' = $appExt.AppId
+                                    }
+                                    if ( "ApplicationObjectId" -eq $item.Key ) {
+                                        $item.'#text' = $appExt.objectId
+                                    }
                                 }
                             }
                         }
@@ -105,6 +108,7 @@ if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
     if ( "" -ne $ExtAppDisplayName ) {    
         write-output "Getting AppID's for $ExtAppDisplayName"
         $appExt = Get-AzureADApplication -SearchString $ExtAppDisplayName
+        write-output $appExt.AppID
     }
 }
 

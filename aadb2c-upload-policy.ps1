@@ -1,5 +1,6 @@
 param (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
+    [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
     [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
@@ -97,20 +98,26 @@ if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
 
-# load the XML Policy files
-$arr = EnumPoliciesFromPath $PolicyPath
-
 # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/directory-assign-admin-roles#b2c-user-flow-administrator
 # get an access token for the B2C Graph App
 $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
 $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
 
-# upload policies - start with those who have no BasePolicyId dependency (null)
-ProcessPolicies $arr $null     
-
-# check what hasn't been uploaded
-foreach( $p in $arr ) {
-    if ( $p.Uploaded -eq $false ) {
-        write-output "$($p.PolicyId) has a refence to $($p.BasePolicyId) which doesn't exists in the folder - not uploaded"
+if ( "" -ne $PolicyFile ) {
+    # upload a single file
+    $PolicyData = Get-Content $PolicyFile # 
+    [xml]$xml = $PolicyData
+    UploadPolicy $xml.TrustFrameworkPolicy.PolicyId $PolicyData
+} else {
+    # load the XML Policy files
+    $arr = EnumPoliciesFromPath $PolicyPath
+    # upload policies - start with those who have no BasePolicyId dependency (null)
+    ProcessPolicies $arr $null     
+    # check what hasn't been uploaded
+    foreach( $p in $arr ) {
+        if ( $p.Uploaded -eq $false ) {
+            write-output "$($p.PolicyId) has a refence to $($p.BasePolicyId) which doesn't exists in the folder - not uploaded"
+        }
     }
 }
+

@@ -25,6 +25,7 @@ $global:PolicyPath = $PolicyPath
 $global:PolicyPrefix = $PolicyPrefix
 $global:ConfigPath = $ConfigPath
 $global:b2cAppSettings =(Get-Content -Path $ConfigPath | ConvertFrom-json)
+$global:InstrumentationKey=$b2cAppSettings.InstrumentationKey
 
 $env:B2CAppId=$b2cAppSettings.ClientCredentials.client_id
 $env:B2CAppKey=$b2cAppSettings.ClientCredentials.client_secret

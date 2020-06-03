@@ -1,5 +1,6 @@
 param (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
+    [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
     [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
@@ -60,15 +61,21 @@ if ( "" -eq $PolicyPath ) {
 $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
 $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
 
-$files = get-childitem -path $PolicyPath -name -include *.xml | Where-Object {! $_.PSIsContainer }
-foreach( $file in $files ) {
-    #write-output "Reading Policy XML file $file..."
-    $PolicyFile = (Join-Path -Path $PolicyPath -ChildPath $file)
-    $PolicyData = Get-Content $PolicyFile
+if ( "" -ne $PolicyFile ) {
+    $PolicyData = Get-Content $PolicyFile # 
     [xml]$xml = $PolicyData
-    if ( $tenantName -ne $xml.TrustFrameworkPolicy.TenantId ) {
-        write-warning $xml.TrustFrameworkPolicy.PublicPolicyUri " is not in the current tenant $tenantName"
-    } else {
-        DeletePolicy $xml.TrustFrameworkPolicy.PolicyId
+    DeletePolicy $xml.TrustFrameworkPolicy.PolicyId
+} else {
+    $files = get-childitem -path $PolicyPath -name -include *.xml | Where-Object {! $_.PSIsContainer }
+    foreach( $file in $files ) {
+        #write-output "Reading Policy XML file $file..."
+        $PolicyFile = (Join-Path -Path $PolicyPath -ChildPath $file)
+        $PolicyData = Get-Content $PolicyFile
+        [xml]$xml = $PolicyData
+        if ( $tenantName -ne $xml.TrustFrameworkPolicy.TenantId ) {
+            write-warning $xml.TrustFrameworkPolicy.PublicPolicyUri " is not in the current tenant $tenantName"
+        } else {
+            DeletePolicy $xml.TrustFrameworkPolicy.PolicyId
+        }
     }
 }
