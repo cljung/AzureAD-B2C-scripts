@@ -55,6 +55,9 @@ foreach( $contDef in $cdefs.ContentDefinition ) {
     }
 }
 
+if ( $null -ne $ext.TrustFrameworkPolicy.BuildingBlocks.ContentDefinitions ) {
+    $ext.TrustFrameworkPolicy.BuildingBlocks.RemoveChild( $ext.TrustFrameworkPolicy.BuildingBlocks.ContentDefinitions )
+}
 <##>
 $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace("</BuildingBlocks>", "<ContentDefinitions>" + $cdefs.InnerXml + "</ContentDefinitions></BuildingBlocks>")
 $ext.Save("$PolicyPath\TrustFrameworkExtensions.xml")
