@@ -1,6 +1,7 @@
 param (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
     [Parameter(Mandatory=$false)][Alias('r')][string]$RelyingPartyFileName = "SignUpOrSignin.xml",
+    [Parameter(Mandatory=$false)][Alias('b')][string]$BasePolicyFileName = "TrustFrameworkBase.xml",
     [Parameter(Mandatory=$false)][Alias('d')][boolean]$DownloadHtmlTemplates = $false,    
     [Parameter(Mandatory=$false)][Alias('u')][string]$urlBaseUx = ""
     )
@@ -20,7 +21,7 @@ if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
     
-[xml]$base =Get-Content -Path "$PolicyPath\TrustFrameworkBase.xml" -Raw
+[xml]$base =Get-Content -Path "$PolicyPath\$BasePolicyFileName" -Raw
 [xml]$ext =Get-Content -Path "$PolicyPath\TrustFrameworkExtensions.xml" -Raw
 
 $tenantShortName = $base.TrustFrameworkPolicy.TenantId.Split(".")[0]
