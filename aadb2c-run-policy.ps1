@@ -20,6 +20,13 @@ if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
 $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
 $tenantName = $xml.TrustFrameworkPolicy.TenantId
 
+$isSAML = $false
+if ( "SAML2"-ne $xml.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name ) {
+    $isSAML = $false
+} else {
+    $isSAML = $true
+}
+
 write-host "Getting test app $WebAppName"
 if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
     $app = (az ad app list --display-name $WebAppName | ConvertFrom-json)
@@ -39,27 +46,41 @@ if ( $app.Count -gt 1 ) {
     exit 1
 }
 
+$pgm = "chrome.exe"
+$params = "--incognito --new-window"
 
-$scope = "openid"
-$response_type = "id_token"
+if ( $isSAML) {
+    if ( $app.IdentifierUris.Count -gt 1 ) {
+        $Issuer = ($app.IdentifierUris | where { $_ -imatch $tenantName })
+    } else {
+        $Issuer = $app.IdentifierUris[0]
+    }
+    $url = "https://samltestapp4.azurewebsites.net/SP?Tenant={0}&Policy={1}&Issuer={2}" -f $tenantName, $PolicyId, $Issuer
+    # start with Firefox if installed as it has a good extension 'SAML tracer'
+    if ( Test-Path "$env:ProgramFiles\Mozilla Firefox" ) {
+        $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+        $params = "-private -new-window"
+    }
+} else {
+    $scope = "openid"
+    $response_type = "id_token"
+    # if extra scopes passed on cmdline, then we will also ask for an access_token
+    if ( "" -ne $scopes ) {
+        $scope = "openid offline_access $scopes"
+        $response_type = "id_token token"
+    }
+    $qparams = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}&prompt=login&disable_cache=true" `
+                -f $app.AppId.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type
+    # Q&D urlencode
+    $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20")
 
-# if extra scopes passed on cmdline, then we will also ask for an access_token
-if ( "" -ne $scopes ) {
-    $scope = "openid offline_access $scopes"
-    $response_type = "id_token token"
+    $url = "https://{0}.b2clogin.com/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $tenantName.Split(".")[0], $tenantName, $PolicyId, $qparams
 }
-
-$params = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}&prompt=login&disable_cache=true" `
-        -f $app.AppId.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type
-# Q&D urlencode
-$params = $params.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20")
-
-$url = "https://{0}.b2clogin.com/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $tenantName.Split(".")[0], $tenantName, $PolicyId, $params
 
 write-host "Starting Browser`n$url"
 
 if ( !$isWinOS) {
     $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
 } else {
-    $ret = [System.Diagnostics.Process]::Start("chrome.exe","--incognito --new-window $url")
+    $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
 }
