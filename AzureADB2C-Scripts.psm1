@@ -697,8 +697,8 @@ function Connect-AzureADB2CEnv
 {
     if ( "" -ne $ConfigPath ) {
         $global:b2cAppSettings =(Get-Content -Path $ConfigPath | ConvertFrom-json)
-        $Tenant = $b2cAppSettings.TenantName
-        $TenantName = $b2cAppSettings.TenantName
+        $Tenant = $global:b2cAppSettings.TenantName
+        $TenantName = $global:b2cAppSettings.TenantName
     }
     if ( "" -eq $TenantName ) {
         write-error "Unknown Tenant. Either use the -TenantName or the -ConfigPath parameter"
@@ -726,7 +726,7 @@ function Connect-AzureADB2CEnv
     $startTime = Get-Date
     
     if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
-        $ctx = (az login --tenant $Tenant --allow-no-subscriptions | ConvertFrom-json)
+        $ctx = (az login --tenant $TenantID --allow-no-subscriptions | ConvertFrom-json)
         $Tenant = $ctx[0].tenantId
         $user = $ctx[0].user.name
         $type = "CLI"
