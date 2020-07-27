@@ -36,10 +36,7 @@ import-module .\AzureADB2C-Scripts.psm1
 ### 2. Connect to you B2C tenant
 
 ```Powershell
-$Tenant = "yourtenant.onmicrosoft.com"  # replace 'yourtenant' with your tenant name
-$TenantID  = (Invoke-RestMethod -Uri "https://login.windows.net/$Tenant/v2.0/.well-known/openid-configuration").authorization_endpoint.Split("/")[3]
-
-Connect-AzureAD -TenantId $TenantID
+Connect-AzureADB2CEnv -t "yourtenant"
 ```
 
 ### 3. Create a App Registration that can be used for authenticating via Client Credentials
