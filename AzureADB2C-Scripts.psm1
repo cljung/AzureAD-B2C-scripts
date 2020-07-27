@@ -1388,14 +1388,8 @@ function New-AzureADB2CPolicyKey
     }
 
     if ( "" -eq $TenantName ) {
-        write-host "Getting Tenant info..."
-        $tenant = Get-AzureADTenantDetail
-        if ( $null -eq $tenant ) {
-            write-error "Not logged in to a B2C tenant"
-            return
-        }
-        $tenantName = $tenant.VerifiedDomains[0].Name
-        $tenantID = $tenant.ObjectId
+        $tenantName = $global:TenantName
+        $tenantID = $global:tenantId
     } else {
         if ( !($TenantName -imatch ".onmicrosoft.com") ) {
             $TenantName = $TenantName + ".onmicrosoft.com"
@@ -1456,8 +1450,7 @@ function New-AzureADB2CTestApp
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
 
-    $tenant = Get-AzureADTenantDetail
-    $tenantName = $tenant.VerifiedDomains[0].Name
+    $tenantName = $global:tenantName
 
     $requiredResourceAccess=@"
     [
