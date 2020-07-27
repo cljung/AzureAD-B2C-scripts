@@ -1504,7 +1504,7 @@ function New-AzureADB2CTestApp
     $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
 
     $apiUrl = "https://graph.microsoft.com/v1.0/applications/$($app.objectId)"
-    $body = @{ SignInAudience = "AzureADandPersonalMicrosoftAccount" }
+    $body = @{ api = @{ requestedAccessTokenVersion = 2 }; SignInAudience = "AzureADandPersonalMicrosoftAccount" }
     Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method PATCH -Body ($body | ConvertTo-json) -ContentType "application/json"
 
     Set-AzureADB2CGrantPermissions -n $DisplayName
