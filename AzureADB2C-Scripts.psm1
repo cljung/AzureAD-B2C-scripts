@@ -37,11 +37,7 @@ function Set-AzureADB2CPolicyDetails
 {
 
 if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-    $isWinOS = $false
-} else {
-    $isWinOS = $true
-}
+$isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
 
 Function UpdatePolicyId([string]$PolicyId) {
     if ( "" -ne $PolicyPrefix ) {
@@ -170,12 +166,7 @@ function Push-AzureADB2CPolicyToTenant
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-        $isWinOS = $false
-    } else {
-        $isWinOS = $true
-    }
-    
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
     # enumerate all XML files in the specified folders and create a array of objects with info we need
     Function EnumPoliciesFromPath( [string]$PolicyPath ) {
         $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
@@ -295,12 +286,7 @@ function Set-AzureADB2CCustomAttributeApp
 )
 {
     
-    if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-      $isWinOS = $false
-    } else {
-      $isWinOS = $true
-    }
-          
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux          
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }
@@ -443,12 +429,7 @@ function Test-AzureADB2CPolicy
         write-error "File does not exists: $PolicyFile"
         return
     }
-    if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-        $isWinOS = $false
-    } else {
-        $isWinOS = $true
-    }
-    
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
     [xml]$xml = Get-Content $PolicyFile
     $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
     $tenantName = $xml.TrustFrameworkPolicy.TenantId
@@ -534,12 +515,7 @@ function Delete-AzureADB2CPolicyFromTenant
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-        $isWinOS = $false
-    } else {
-        $isWinOS = $true
-    }
-    
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
     # invoke the Graph REST API to upload the Policy
     Function DeletePolicy( [string]$PolicyId) {
         # https://docs.microsoft.com/en-us/graph/api/trustframework-put-trustframeworkpolicy?view=graph-rest-beta
@@ -708,12 +684,7 @@ function Connect-AzureADB2CEnv
     if ( !($TenantName -imatch ".onmicrosoft.com") ) {
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
-
-    if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-        $isWinOS = $false
-    } else {
-        $isWinOS = $true
-    }
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
     if ( $TenantName.Length -eq 36 -and $TenantName.Contains("-") -eq $true)  {
         $TenantID = $TenantName
     } else {
@@ -779,11 +750,7 @@ function Read-AzureADB2CConfig
         write-error "Config file not found $ConfigPath"
         return
     }
-    if ( $env:PATH -imatch "/usr/bin" ) {                           # Mac/Linux
-        $isWinOS = $false
-    } else {
-        $isWinOS = $true
-    }
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
         
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
@@ -1230,5 +1197,303 @@ if ( $true -eq $copyFromBase ) {
 $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "xmlns=`"`"", "") 
 
 $ext.Save("$PolicyPath/TrustFrameworkExtensions.xml")
+
+}
+
+function New-AzureADB2CIdentityExperienceFrameworkApps
+(
+    [Parameter(Mandatory=$false)][Alias('n')][string]$DisplayName = "IdentityExperienceFramework",
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
+)
+{
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+
+    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        write-host "Getting Tenant info..."
+        $tenant = Get-AzureADTenantDetail
+        $tenantName = $tenant.VerifiedDomains[0].Name
+        $tenantID = $tenant.ObjectId
+    } else {
+        $tenantName = $global:tenantName
+        $tenantID = $global:tenantID
+    }
+    write-host "$tenantName`n$tenantId"
+
+    $AzureAdGraphApiAppID = "00000002-0000-0000-c000-000000000000"  # https://graph.windows.net
+    $scopeUserReadId = "311a71cc-e848-46a1-bdf8-97ff7156d8e6"       # User.Read
+    $scopeUserRead = "User.Read"
+
+    $ProxyDisplayName = "Proxy$DisplayName"
+
+    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        $req1 = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
+        $req1.ResourceAppId = $AzureAdGraphApiAppID
+        $req1.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $scopeUserReadId,"Scope"
+        write-host "`nCreating WebApp $DisplayName..."
+        $appIEF = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "http://$TenantName/$DisplayName" -ReplyUrls @("https://$DisplayName") -RequiredResourceAccess $req1 # WebApp
+        write-output "AppID`t`t$($appIEF.AppId)`nObjectID:`t$($appIEF.ObjectID)"
+        write-host "Creating ServicePrincipal..."
+        $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $appIEF.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
+        write-host "AppID`t`t$($sp.AppId)`nObjectID:`t$($sp.ObjectID)"
+
+        $req2 = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
+        $req2.ResourceAppId = $appIEF.AppId
+        $req2.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $appIEF.Oauth2Permissions.Id,"Scope"
+
+        write-host "`nCreating NativeApp $ProxyDisplayName..."
+        $appPIEF = New-AzureADApplication -DisplayName $ProxyDisplayName -ReplyUrls @("https://$ProxyDisplayName") -RequiredResourceAccess @($req1,$req2) -PublicClient $true # NativeApp
+        write-output "AppID`t`t$($appPIEF.AppId)`nObjectID:`t$($appPIEF.ObjectID)"
+        write-host "Creating ServicePrincipal..."
+        $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $appPIEF.AppId -AppRoleAssignmentRequired $false -DisplayName $ProxyDisplayName 
+        write-host "AppID`t`t$($sp.AppId)`nObjectID:`t$($sp.ObjectID)"
+
+        Set-AzureADB2CGrantPermissions -n $DisplayName
+        Set-AzureADB2CGrantPermissions -n $ProxyDisplayName
+    } else {
+        write-host "Creating $DisplayName"
+        $resAccessUserRead =  "{`"`"resourceAppId`"`": `"`"$AzureAdGraphApiAppID`"`",`"`"resourceAccess`"`":[{`"`"id`"`": `"`"$scopeUserReadId`"`",`"`"type`"`":`"`"Scope`"`"}]}"
+        $appIEF = (az ad app create --display-name $DisplayName --identifier-uris "http://$TenantName/$DisplayName" --reply-urls "https://$DisplayName" --required-resource-accesses "[$resAccessUserRead]" | ConvertFrom-json)
+        $spIEF = (az ad sp create --id $appIEF.appId | ConvertFrom-json)
+        write-host $appIEF.appId
+
+        write-host "Creating $ProxyDisplayName"
+        $resAccessP="[{`"`"resourceAccess`"`":[{`"`"id`"`":`"`"$($appIEF.Oauth2Permissions.id)`"`",`"`"type`"`":`"`"Scope`"`"}],`"`"resourceAppId`"`":`"`"$($appIEF.appId)`"`"},$resAccessUserRead]"
+        $appPIEF = (az ad app create --display-name $ProxyDisplayName --native-app --reply-urls "https://$ProxyDisplayName" --required-resource-accesses $resAccessP | ConvertFrom-Json)
+        $spPIEF = (az ad sp create --id $appPIEF.appId | ConvertFrom-json)
+        write-host $appPIEF.appId
+        
+        $appGraph = (az ad sp list --spn "https://graph.windows.net" | convertFrom-json)
+
+        write-host "Granting Permissions for $DisplayName"
+        $res = (az ad app permission grant --id $appIEF.appId --api $appGraph.objectId --scope $scopeUserRead --consent-type "AllPrincipals" | ConvertFrom-json)
+
+        write-host "Granting Permissions for $ProxyDisplayName"
+        $res = (az ad app permission grant --id $appPIEF.appId --api $appGraph.objectId --scope $scopeUserRead --consent-type "AllPrincipals" | ConvertFrom-json)
+        $res = (az ad app permission grant --id $appPIEF.appId --api $appIEF.appId --consent-type "AllPrincipals" | ConvertFrom-json)
+    }
+
+}
+
+function Set-AzureADB2CGrantPermissions
+(
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
+    [Parameter(Mandatory=$true)][Alias('n')][string]$AppDisplayName = ""
+)
+{
+    $oauth = $null
+    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+
+    $tenantID = ""
+    if ( "" -eq $TenantName ) {
+        write-host "Getting Tenant info..."
+        $tenant = Get-AzureADTenantDetail
+        if ( $null -eq $tenant ) {
+            write-error "Not logged in to a B2C tenant"
+            return
+        }
+        $tenantName = $tenant.VerifiedDomains[0].Name
+        $tenantID = $tenant.ObjectId
+    } else {
+        if ( !($TenantName -imatch ".onmicrosoft.com") ) {
+            $TenantName = $TenantName + ".onmicrosoft.com"
+        }
+        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    }
+    if ( "" -eq $tenantID ) {
+        write-error "Unknown Tenant"
+        return
+    }
+    write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
+
+    $app = Get-AzureADApplication -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
+    $sp = Get-AzureADServicePrincipal -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
+
+    if ( $null -eq $app -or $null -eq $sp ) {
+        write-error "No ServicePrincipal with name $AppDisplayName"
+        return
+    }
+
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="https://graph.microsoft.com/.default"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+
+    $startTime = (get-date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $expiryTime = ((get-date).AddYears(2)).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $scope = ""
+    foreach( $reqResAccess in $app.RequiredResourceAccess ) { 
+        $resource = (Get-AzureADServicePrincipal -All $true | where-object {$_.AppId -eq $reqResAccess.ResourceAppId })
+        $ResourceObjectId = $resource.ObjectId
+        foreach( $ra in $reqResAccess.ResourceAccess ) {
+            $scope += ($resource.oauth2Permissions | where-object {$_.Id -eq $ra.Id}).Value + " "
+        }
+        $body = @{
+            clientId    = $sp.ObjectId
+            consentType = "AllPrincipals"
+            principalId = $null
+            resourceId  = $ResourceObjectId
+            scope       = $scope
+            startTime   = $startTime
+            expiryTime  = $expiryTime 
+        }
+        write-output "Granting $($resource.DisplayName) - $scope to $AppDisplayName"
+        $apiUrl = "https://graph.microsoft.com/beta/oauth2PermissionGrants"
+        Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method POST -Body $($body | convertto-json) -ContentType "application/json"
+    }
+
+}
+
+function New-AzureADB2CPolicyKey
+(
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",            # App reg in B2C that has permissions to create policy keys
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",           #
+    [Parameter(Mandatory=$true)][Alias('n')][string]$KeyContainerName = "", # [B2C_1A_]Name
+    [Parameter(Mandatory=$true)][Alias('y')][string]$KeyType = "secret",    # RSA, secret
+    [Parameter(Mandatory=$true)][Alias('u')][string]$KeyUse = "sig",        # sig, enc
+    [Parameter(Mandatory=$false)][Alias('s')][string]$Secret = ""           # used when $KeyType==secret
+)
+{
+    $oauth = $null
+    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+    $KeyType = $KeyType.ToLower()
+    $KeyUse = $KeyUse.ToLower()
+
+    if ( !("rsa" -eq $KeyType -or "secret" -eq $KeyType ) ) {
+        write-error "KeyType must be RSA or secret"
+        return
+    }
+    if ( !("sig" -eq $KeyUse -or "enc" -eq $KeyUse ) ) {
+        write-error "KeyUse must be sig(nature) or enc(ryption)"
+        return
+    }
+    if ( $false -eq $KeyContainerName.StartsWith("B2C_1A_") ) {
+        $KeyContainerName = "B2C_1A_$KeyContainerName"
+    }
+
+    if ( "" -eq $TenantName ) {
+        write-host "Getting Tenant info..."
+        $tenant = Get-AzureADTenantDetail
+        if ( $null -eq $tenant ) {
+            write-error "Not logged in to a B2C tenant"
+            return
+        }
+        $tenantName = $tenant.VerifiedDomains[0].Name
+        $tenantID = $tenant.ObjectId
+    } else {
+        if ( !($TenantName -imatch ".onmicrosoft.com") ) {
+            $TenantName = $TenantName + ".onmicrosoft.com"
+        }
+        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    }
+
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="TrustFrameworkKeySet.Read.All,TrustFrameworkKeySet.ReadWrite.All"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+    <##>
+    $url = "https://graph.microsoft.com/beta/trustFramework/keySets"
+
+    try {
+        $resp = Invoke-RestMethod -Method GET -Uri "$url/$KeyContainerName" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -ErrorAction SilentlyContinue
+        write-warning "$($resp.id) already has $($resp.keys.Length) keys"
+        return
+    } catch {
+    }
+    $body = @"
+    {
+        "id": "$KeyContainerName"
+    }
+"@
+    $resp = Invoke-RestMethod -Method POST -Uri $url -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -Body $body -ContentType "application/json" -ErrorAction SilentlyContinue
+    <##>
+    if ( "secret" -eq $KeyType ) {
+        $url = "https://graph.microsoft.com/beta/trustFramework/keySets/$KeyContainerName/uploadSecret"
+        $body = @"
+    {
+        "use": "$KeyUse",
+        "k": "$Secret"
+    }
+"@
+    } 
+    if ( "rsa" -eq $KeyType ) {
+        $url = "https://graph.microsoft.com/beta/trustFramework/keySets/$KeyContainerName/generateKey"
+        $body = @"
+    {
+        "use": "$KeyUse",
+        "kty": "RSA",
+    }
+"@
+    } 
+
+    $resp = Invoke-RestMethod -Method POST -Uri $url -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -Body $body -ContentType "application/json"
+    write-output "key created: $KeyContainerName"    
+}
+
+function New-AzureADB2CTestApp
+(
+    [Parameter(Mandatory=$true)][Alias('n')][string]$DisplayName = "Test-WebApp",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = ""
+)
+{
+    $oauth = $null
+    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+
+    $tenant = Get-AzureADTenantDetail
+    $tenantName = $tenant.VerifiedDomains[0].Name
+
+    $requiredResourceAccess=@"
+    [
+        {
+            "resourceAppId": "00000003-0000-0000-c000-000000000000",
+            "resourceAccess": [
+                {
+                    "id": "37f7f235-527c-4136-accd-4a02d197296e",
+                    "type": "Scope"
+                },
+                {
+                    "id": "7427e0e9-2fba-42fe-b0c0-848c9e6a8182",
+                    "type": "Scope"
+                }
+            ]
+        }
+    ]
+"@ | ConvertFrom-json
+
+    $reqAccess=@()
+    foreach( $resApp in $requiredResourceAccess ) {
+        $req = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
+        $req.ResourceAppId = $resApp.resourceAppId
+        foreach( $ra in $resApp.resourceAccess ) {
+            $req.ResourceAccess += New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $ra.Id,$ra.type
+        }
+        $reqAccess += $req
+    }
+
+    write-output "Creating application $DisplayName"
+    $app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "https://$TenantName/$DisplayName" -ReplyUrls @("https://jwt.ms") -RequiredResourceAccess $reqAccess -Oauth2AllowImplicitFlow $true
+
+    write-output "Creating ServicePrincipal $DisplayName"
+    $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
+
+
+    # -----------------------------------------------------------------------------------------
+    # Patch WebApp with attributes Poweshell can't
+    # -----------------------------------------------------------------------------------------
+
+    Start-Sleep 15 # replication
+
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="https://graph.microsoft.com/.default Application.ReadWrite.All"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+
+    $apiUrl = "https://graph.microsoft.com/v1.0/applications/$($app.objectId)"
+    $body = @{ SignInAudience = "AzureADandPersonalMicrosoftAccount" }
+    Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method PATCH -Body ($body | ConvertTo-json) -ContentType "application/json"
+
+    Set-AzureADB2CGrantPermissions -n $DisplayName
 
 }

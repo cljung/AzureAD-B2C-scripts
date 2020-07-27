@@ -13,14 +13,22 @@ Install [Powershell](https://docs.microsoft.com/en-us/powershell/scripting/insta
 
 With the scripts in this repository, you can create a fully functional B2C Custom Policy environment in seconds via the commands 
 
+Load the module
+```Powershell
+import-module .\AzureADB2C-Scripts.psm1
+```
+
 ```Powershell
 .\aadb2c-create-graph-app.ps1 -n "B2C-Graph-App"
-.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
-.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
-.\aadb2c-create-ief-apps.ps1
+New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
+New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
+New-AzureADB2CIdentityExperienceFrameworkApps
+New-AzureADB2CTestApp -n "Test-WebApp"
 md demo; cd demo
-..\aadb2c-create-new-policy-project.ps1 -ConfigPath ..\b2cAppSettings.json -UploadSecrets $true
-..\aadb2c-create-test-webapp.ps1 -n "Test-WebApp"
+Get-AzureADB2CStarterPack
+Set-AzureADB2CPolicyDetails -x "demo"
+Push-AzureADB2CPolicyToTenant
+Test-AzureADB2CPolicy -n "Test-WebApp" -p .\SignupOrSignin.xml
 ```
 
 ## Prerequisites
@@ -41,10 +49,12 @@ git clone https://github.com/cljung/AzureAD-B2C-scripts.git
 
 cd AzureAD-B2C-scripts
 ```
-Then, run the script [aadb2c-login.ps1](aadb2c-login.ps1). The ***yourtenant*** does not need to include .onmicrosoft.com since the script will fix that for you. It is basically a wrapper around the Cmdlet ***Connect-AzAccount -t {guid}*** that connects you to your tenant. You need to run this using the same account as you created the B2C tenant with as it as the only user that has access to the tenant at start.
+Then, run the cmdlet ***Connect-AzureADB2CEnv***. The ***yourtenant*** does not need to include .onmicrosoft.com since the script will fix that for you. It is basically a wrapper around the Cmdlet ***Connect-AzAccount -t {guid}*** that connects you to your tenant. You need to run this using the same account as you created the B2C tenant with as it as the only user that has access to the tenant at start.
 
 ```Powershell
-.\aadb2c-login.ps1 -t "yourtenant"
+Connect-AzureADB2CEnv -t "yourtenant"
+# or
+Connect-AzureADB2CEnv -ConfigPath .\b2cAppsettings.json
 ```
 
 ## Create Client Credentials for scripting
@@ -83,9 +93,8 @@ Remeber to go to portal.azure.com for the app and Grant Permission
 The [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) then continues with that you need to create your token encryption and signing keys. This isn't the most tedious job and doing it by hand is quite fast, but if you want to automate it, the following two lines will do it for you. 
 
 ```Powershell
-.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
-
-.\aadb2c-policy-key-create.ps1 -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
+New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
+New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
 ```
 
 ## Create the IdentityExperienceFramework and ProxyIdentityExperienceFramework apps
@@ -175,105 +184,27 @@ If you set the KeepPolicyIds switch to $True, the PolicyIds will be kept as-is, 
 
 ```Powershell
 md demo
-..\aadb2c-create-new-policy-project.ps1 -ConfigPath ..\b2cAppSettings.json -UploadSecrets $true [-KeepPolicyIds $true]
-*******************************************************************************
-* Configuration
-*******************************************************************************
-Config File    :        ..\b2cAppSettings.json
-B2C Tenant     :        91b..78, yourtenant.onmicrosoft.com
-B2C Client Cred:        4b7..10, B2C-Graph-App
-Policy Prefix  :        demo
-*******************************************************************************
-* Downloading and preparing Starter Pack
-*******************************************************************************
-Tenant:         yourtenant.onmicrosoft.com
-TenantID:       91b..78
-Getting AppID's for IdentityExperienceFramework / ProxyIdentityExperienceFramework
-Downloading https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master/SocialAndLocalAccounts/TrustFrameworkBase.xml to C:\Users\alice\src\B2C\scripts\demo\TrustFrameworkBase.xml
-Downloading https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master/SocialAndLocalAccounts/TrustFrameworkExtensions.xml to C:\Users\alice\src\B2C\scripts\demo\TrustFrameworkExtensions.xml
-Downloading https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master/SocialAndLocalAccounts/SignUpOrSignin.xml to C:\Users\alice\src\B2C\scripts\demo\SignUpOrSignin.xml
-Downloading https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master/SocialAndLocalAccounts/PasswordReset.xml to C:\Users\alice\src\B2C\scripts\demo\PasswordReset.xml
-Downloading https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master/SocialAndLocalAccounts/ProfileEdit.xml to C:\Users\alice\src\B2C\scripts\demo\ProfileEdit.xml
-Modifying Policy file PasswordReset.xml...
-Modifying Policy file ProfileEdit.xml...
-Modifying Policy file SignUpOrSignin.xml...
-Modifying Policy file TrustFrameworkBase.xml...
-Modifying Policy file TrustFrameworkExtensions.xml...
-*******************************************************************************
-* Adding custom attributes app to AAD-Common Claims Provider
-*******************************************************************************
-Using b2c-extensions-app
-Adding TechnicalProfileId AAD-Common
-*******************************************************************************
-* Adding Social IdPs
-*******************************************************************************
-Updating TechnicalProfileId Facebook-OAUTH
-Getting Tenant info...
-key created: B2C_1A_FacebookSecret
-*******************************************************************************
-* Uploading Custom Policies to B2C
-*******************************************************************************
-Tenant:         yourtenant.onmicrosoft.com
-TenantID:       91b..78
-Authenticating as App B2C-Graph-App, AppID 4b7...10
-Uploading policy B2C_1A_demo_TrustFrameworkBase...
-Uploading policy B2C_1A_demo_TrustFrameworkExtensions...
-Uploading policy B2C_1A_demo_PasswordReset...
-Uploading policy B2C_1A_demo_ProfileEdit...
-Uploading policy B2C_1A_demo_signup_signin...
+Get-AzureADB2CStarterPack               # get the starter pack from github
+Set-AzureADB2CPolicyDetails -x "demo"   # set the tenant details and give the policies the "demo" prefix
+Set-AzureADB2CCustomAttributeApp        # set the custom attribute app to 'b2c-extensions'
+Set-AzureADB2CCustomizeUX               # set UX version to ver 1.2 to enable javascript
+Push-AzureADB2CPolicyToTenant           # upload the policies
 ```
-The script [aadb2c-upload-policy.ps1](aadb2c-upload-policy.ps1), which is responsible for uploading the B2C Custom Policies, is smart enough to look through the inheritance chain between the different xml files and will upload them in the correct order, ie start with Base, continue with Extensions and then the rest.
+The cmdlet ***Push-AzureADB2CPolicyToTenant*** , which is responsible for uploading the B2C Custom Policies, is smart enough to look through the inheritance chain between the different xml files and will upload them in the correct order, ie start with Base, continue with Extensions and then the rest.
 
 ## Test drive the Custom Policy
 
 To test the Custom Policy you need to register a dummy webapp in the portal that you can use. This is described in the tutorial for how to register an app and can be found here under section [Register a web application](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-register-applications?tabs=app-reg-preview#register-a-web-application).
 
-To automatically provision the app, run this script
+To automatically provision the app, run this command below. It will create a webapp that redirects to [https://jwt.ms](https://jwt.ms) so you can test the B2C policy.
 
 ```Powershell
-..\aadb2c-create-test-webapp.ps1 -n "Test-WebApp"
+New-AzureADB2CTestApp -n "Test-WebApp"
 ```
 
-It will create a webapp that redirects to [https://jwt.ms](https://jwt.ms) so you can test the B2C policy
-
-## After initial creation
-
-After the initial creation and upload of the policies, you can continue to work with the policies
-
-### To load the settings in a new Powershell command prompt
+Then to test a policy using the newly created test app, run the command
 
 ```Powershell
-cd demo
-..\aadb2c-env.ps1 -ConfigPath ..\b2cAppSettings.json
+Test-AzureADB2CPolicy -n "Test-WebApp" -p .\SignupOrSignin.xml
 ```
 
-If you don't want to use a PolicyPrefix in the PolicyId and keep the names as is (like B2C_1A_SignUpOrSignIn), then use the -k switch to keep the PolicyIds
-
-```Powershell
-cd demo
-..\aadb2c-env.ps1 -ConfigPath ..\b2cAppSettings.json -KeepPolicyIds $True
-```
-
-### To rewire the policies to another B2C tenant
-
-This script updates all policy xml files with:
-1. PolicyId and TenantId in the header
-2. App guids user for custom attributes
-3. App guids for IdentityExperienceFramework and ProxyIdentityExperienceFramework
-
-```Powershell
-cd demo
-..\aadb2c-policy-set-tenant.ps1 -t "mynewtenant.onmicrosoft.com" -p $pwd.Path
-```
-
-### To upload the policies to B2C
-
-```Powershell
-..\aadb2c-upload-policy.ps1 -t "mynewtenant.onmicrosoft.com" -p "C:\path\to\my\policies"
-```
-
-or if the policies are in the current folder
-
-```Powershell
-..\aadb2c-upload-policy.ps1
-```
