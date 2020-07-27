@@ -38,6 +38,7 @@ function Set-AzureADB2CPolicyDetails
 
 if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
 $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+if ( $isWinOS ) { $AzureCLI = $True}
 
 Function UpdatePolicyId([string]$PolicyId) {
     if ( "" -ne $PolicyPrefix ) {
@@ -119,7 +120,7 @@ write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
 
 <##>
 write-host "Getting AppID's for $IefAppName / $IefProxyAppName"
-if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+if ( $True -eq $AzureCli ) {
     $AppIdIEF = (az ad app list --display-name $iefAppName | ConvertFrom-json).AppId
     $AppIdIEFProxy = (az ad app list --display-name $iefProxyAppName | ConvertFrom-json).AppId
     if ( "" -ne $ExtAppDisplayName ) {    
@@ -167,6 +168,8 @@ function Push-AzureADB2CPolicyToTenant
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
     $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isWinOS ) { $AzureCLI = $True}    
+
     # enumerate all XML files in the specified folders and create a array of objects with info we need
     Function EnumPoliciesFromPath( [string]$PolicyPath ) {
         $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
@@ -233,7 +236,7 @@ function Push-AzureADB2CPolicyToTenant
     write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
     
     # check the B2C Graph App passed
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $True -eq $AzureCli ) {
         $app = (az ad app show --id $AppID | ConvertFrom-json)
     } else {
         $app = Get-AzureADApplication -Filter "AppID eq '$AppID'"
@@ -286,7 +289,9 @@ function Set-AzureADB2CCustomAttributeApp
 )
 {
     
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux          
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux   
+    if ( $isWinOS ) { $AzureCLI = $True}           
+
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }
@@ -319,7 +324,7 @@ function Set-AzureADB2CCustomAttributeApp
     if ( "" -eq $client_id ) {
         if ( "" -eq $AppDisplayName ) { $AppDisplayName = "b2c-extensions-app"}
         write-output "Using $AppDisplayName"
-        if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+        if ( $True -eq $AzureCli ) {
           $appExt = (az ad app list --display-name $AppDisplayName | ConvertFrom-json)
         } else {
           $appExt = Get-AzureADApplication -SearchString $AppDisplayName
@@ -430,6 +435,8 @@ function Test-AzureADB2CPolicy
         return
     }
     $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isWinOS ) { $AzureCLI = $True}
+
     [xml]$xml = Get-Content $PolicyFile
     $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
     $tenantName = $xml.TrustFrameworkPolicy.TenantId
@@ -442,7 +449,7 @@ function Test-AzureADB2CPolicy
     }
         
     write-host "Getting test app $WebAppName"
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $True -eq $AzureCli ) {
         $app = (az ad app list --display-name $WebAppName | ConvertFrom-json)
     } else {
         $app = Get-AzureADApplication -SearchString $WebAppName -ErrorAction SilentlyContinue
@@ -493,7 +500,7 @@ function Test-AzureADB2CPolicy
     
     write-host "Starting Browser`n$url"
     
-    if ( !$isWinOS) {
+    if ( $isWinOS ) {
         $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
     } else {
         $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
@@ -515,7 +522,8 @@ function Delete-AzureADB2CPolicyFromTenant
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux  
+    if ( $isWinOS ) { $AzureCLI = $True}      
     # invoke the Graph REST API to upload the Policy
     Function DeletePolicy( [string]$PolicyId) {
         # https://docs.microsoft.com/en-us/graph/api/trustframework-put-trustframeworkpolicy?view=graph-rest-beta
@@ -539,7 +547,7 @@ function Delete-AzureADB2CPolicyFromTenant
     write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
     
     # check the B2C Graph App passed
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $True -eq $AzureCli ) {
         $app = (az ad app show --id $AppID | ConvertFrom-json)
     } else {
         $app = Get-AzureADApplication -Filter "AppID eq '$AppID'"
@@ -668,7 +676,7 @@ function Connect-AzureADB2CEnv
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('c')][string]$ConfigPath = "",
-    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False    
+    [Parameter(Mandatory=$false)][boolean]$AzureClI = $False    
 )
 {
     if ( "" -ne $ConfigPath ) {
@@ -685,6 +693,8 @@ function Connect-AzureADB2CEnv
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
     $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isWinOS ) { $AzureCLI = $True}
+
     if ( $TenantName.Length -eq 36 -and $TenantName.Contains("-") -eq $true)  {
         $TenantID = $TenantName
     } else {
@@ -696,7 +706,7 @@ function Connect-AzureADB2CEnv
     
     $startTime = Get-Date
     
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $True -eq $AzureCli ) {
         $ctx = (az login --tenant $TenantID --allow-no-subscriptions | ConvertFrom-json)
         $Tenant = $ctx[0].tenantId
         $user = $ctx[0].user.name
@@ -742,7 +752,8 @@ function Read-AzureADB2CConfig
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('n')][string]$PolicyPrefix = "",  
     [Parameter(Mandatory=$false)][Alias('k')][boolean]$KeepPolicyIds = $False,  
-    [Parameter(Mandatory=$true)][Alias('c')][string]$ConfigPath = "" 
+    [Parameter(Mandatory=$true)][Alias('c')][string]$ConfigPath = "", 
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
     
@@ -751,7 +762,8 @@ function Read-AzureADB2CConfig
         return
     }
     $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
-        
+    if ( $isWinOS ) { $AzureCLI = $True}
+
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }
@@ -782,7 +794,7 @@ function Read-AzureADB2CConfig
         $TenantName = $b2cAppSettings.TenantName
     }
     
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $True -eq $AzureCli ) {
         try {
             $tenant = (az account show | ConvertFrom-json)
         } catch {
@@ -1207,8 +1219,9 @@ function New-AzureADB2CIdentityExperienceFrameworkApps
 )
 {
     $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isWinOS ) { $AzureCLI = $True}
 
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $False -eq $AzureCli ) {
         write-host "Getting Tenant info..."
         $tenant = Get-AzureADTenantDetail
         $tenantName = $tenant.VerifiedDomains[0].Name
@@ -1225,7 +1238,7 @@ function New-AzureADB2CIdentityExperienceFrameworkApps
 
     $ProxyDisplayName = "Proxy$DisplayName"
 
-    if ( $False -eq $isWinOS -or $True -eq $AzureCli ) {
+    if ( $False -eq $AzureCli ) {
         $req1 = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
         $req1.ResourceAppId = $AzureAdGraphApiAppID
         $req1.ResourceAccess = New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $scopeUserReadId,"Scope"
