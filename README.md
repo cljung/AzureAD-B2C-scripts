@@ -25,7 +25,7 @@ After creating the tenant, you need to link it to your Azure Subscription
 
 ## Starting from scratch
 
-1. Open a powershell command prompt and git clone this repo
+### 1. Open a powershell command prompt and git clone this repo 
 
 ```Powershell
 git clone https://github.com/cljung/AzureAD-B2C-scripts.git
@@ -33,7 +33,7 @@ cd AzureAD-B2C-scripts
 import-module .\AzureADB2C-Scripts.psm1
 ```
 
-2. Connect to you B2C tenant
+### 2. Connect to you B2C tenant
 
 ```Powershell
 $Tenant = "yourtenant.onmicrosoft.com"  # replace 'yourtenant' with your tenant name
@@ -42,18 +42,18 @@ $TenantID  = (Invoke-RestMethod -Uri "https://login.windows.net/$Tenant/v2.0/.we
 Connect-AzureAD -TenantId $TenantID
 ```
 
-3. Create a App Registration that can be used for authenticating via Client Credentials
+### 3. Create a App Registration that can be used for authenticating via Client Credentials
 
 ```Powershell
 .\aadb2c-create-graph-app.ps1 -n "B2C-Graph-App"
 ```
 Copy-n-paste the json output for "ClientCredentials" and update the b2cAppSettings.json file. Update the tenant name in b2cAppSettings.json too.
 
-4. Find the ***B2C-Graph-App*** in [https://portal.azure.com/yourtenant.onmicrosoft.com](https://portal.azure.com/yourtenant.onmicrosoft.com) and grant admin consent under API permissions
+### 4. Find the ***B2C-Graph-App*** in [https://portal.azure.com/yourtenant.onmicrosoft.com](https://portal.azure.com/yourtenant.onmicrosoft.com) and grant admin consent under API permissions
 
 ![Permissions to Grant](media/01-permissions-to-grant.png)
 
-5. Create Custom Policy Keys
+### 5. Create Custom Policy Keys
 
 In the [create your B2C tenant](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-create-tenant) documentation, it describes that you need to create your token encryption and signing keys. This isn't the most tedious job and doing it by hand is quite fast, but if you want to automate it, the following two lines will do it for you. 
 
@@ -62,13 +62,13 @@ New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -Key
 New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
 ```
 
-6. Create the Custom Policy apps IdentityExperienceFramework and ProxyIdentityExperienceFramework
+### 6. Create the Custom Policy apps IdentityExperienceFramework and ProxyIdentityExperienceFramework
 
 ```Powershell
 New-AzureADB2CIdentityExperienceFrameworkApps
 ```
 
-7. Create an App Registration for a test webapp that accepts https://jwt.ms as redirectUri
+### 7. Create an App Registration for a test webapp that accepts https://jwt.ms as redirectUri
 
 To test the Custom Policy you need to register a dummy webapp in the portal that you can use. This is described in the tutorial for how to register an app and can be found here under section [Register a web application](https://docs.microsoft.com/en-us/azure/active-directory-b2c/tutorial-register-applications?tabs=app-reg-preview#register-a-web-application).
 
@@ -76,7 +76,7 @@ To test the Custom Policy you need to register a dummy webapp in the portal that
 New-AzureADB2CTestApp -n "Test-WebApp"
 ```
 
-8. Create Facebook secret
+### 8. Create Facebook secret
 
 Even though you might not use social login via Facebook, quite alot in the Custom Policies from the Starter Pack requires the key to be there for the policies to upload without error, so create a dummy key for now.
 
@@ -84,7 +84,6 @@ Even though you might not use social login via Facebook, quite alot in the Custo
 New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_FacebookSecret" -KeyType "secret" -KeyUse "sig" -Secret "abc123"
 ``` 
 
- 
 # Creating a new Custom Policy project
 
 Once you have your B2C tenant setup, it is time to create some Custom Policies. Using these Powershell modules, you will have your first Custom Policies ready to test in under 5 minutes.
@@ -107,6 +106,8 @@ Connect-AzureADB2CEnv -t "yourtenant"
 ```
 
 ## Download the Custom Policy Starter Pack and modify them to your tenant
+
+These 4 cmdlets will download the B2C Starter Pack files, wire them up to your tenant and make them ready for deployment. The first two are mandatory, the second two is likely that you want to use. 
 
 ```Powershell
 md demo; cd demo
