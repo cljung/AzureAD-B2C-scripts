@@ -188,3 +188,189 @@ The config file [b2cAppSettings.json](b2cAppSettings.json) contains settings for
 * ClaimsProviders - a list of claims provider you like to support. Note that for each you enable, you need to use the respective portal to configure your app and to copy-n-paste the client_id/secret into b2cAppSettings.json
 
 If you just want to test drive the below step, enable the Facebook Claims Provider (Enable=true) and set the client_id + client_secret configuration values to something bogus, like 1234567890. Since Facebook is part of the Starter Pack to begin with, you need this to be enabled to be able to upload correctly. Later if you want to use Facebook, you can register a true app and change the key or you can remove the Facebook Claims Provider in the ***TrustFrameworkExtension.xml*** file.
+
+# Cmdlets Reference
+
+## Get-AzureADB2CStarterPack 
+
+Downloads the Starter Pack Custom Policy files from github.
+
+```powershell
+NAME
+    Get-AzureADB2CStarterPack
+    
+SYNTAX
+    Get-AzureADB2CStarterPack [[-PolicyPath] <string>] [[-PolicyType] <string>] [<CommonParameters>]
+```
+- PolicyPath (p) : where you want to store the downloaded Starter Pack files. Default is current directory
+- PolicyType (b) : What type of policies to download. Default is SocialAndLocalAccounts. Valid values are any folder in the Starter Pack github repo, like SocialAndLocalAccountsWithMfa, etc.
+
+## Set-AzureADB2CPolicyDetails
+
+Updates the Custom Policy files with your tenant name, your IdentityExperience Framework/ProxyIdentityExperienceFramework AppIDs and objectIds, optionally modifies the policy names with unique prefix.
+
+```powershell
+NAME
+    Set-AzureADB2CPolicyDetails
+    
+SYNTAX
+    Set-AzureADB2CPolicyDetails [[-TenantName] <string>] [[-PolicyPath] <string>] [[-PolicyPrefix] <string>] [[-IefAppName] <string>] [[-IefProxyAppName] <string>] [[-ExtAppDisplayName] <string>] [[-AzureCli] <bool>] [<CommonParameters>]
+```
+
+- TenantName (t)   : if you want to override the current tenant you are working in when updating the policies
+- PolicyPath (p)   : where you want to store the downloaded Starter Pack files. Default is current directory
+- PolicyPrefix (x) : If you want the policyIds to have a unique name, like B2C_1A_***demo***_signup_signin
+- IefAppName       : if the IdentityExperienceFramework app should have another name (there is no reason why but testing)
+- IefProxyAppName  : if the ProxyIdentityExperienceFramework app should have another name (there is no reason why but testing)
+- ExtAppDisplayName : The app DisplayName of the app to use for custom attributes (default is b2c-extensions-app). This value is only used if TechnicalProfile AAD-Common is already present in the file. To add AAD-Common, use Set-AzureADB2CCustomAttributeApp cmdlets.
+- AzureCLI         : if to force the usage of Azure CLI on Windows platform
+
+## Set-AzureADB2CCustomizeUX 
+
+Updates the Custom Policy files with UX template settings, enables javascript and optionally prepares the fils for custom html.
+
+```powershell
+NAME
+    Set-AzureADB2CCustomizeUX
+    
+SYNTAX
+    Set-AzureADB2CCustomizeUX [[-PolicyPath] <string>] [[-RelyingPartyFileName] <string>] [[-BasePolicyFileName] <string>] [[-ExtPolicyFileName] <string>] [[-
+    DownloadHtmlTemplates] <bool>] [[-urlBaseUx] <string>] [<CommonParameters>]
+```
+
+- PolicyPath (p)   : where you want to store the downloaded Starter Pack files. Default is current directory
+- RelyingPartyFileName (r) : if to just update one file. Default is enumerate all policy files
+- BasePolicyFileName (b) : Name of TrustFrameworkBase.xml file, if named differently
+- ExtPolicyFileName (e) : Name of TrustFramworkExtensions.xml file, if named differently
+- DownloadHtmlTemplates (d) : if to download the Azure Ocean blue standard html templates so you can have them as a starting point for making your own custom html
+- urlBaseUx (u) : If to replace the url links in TrustFrameworkExtensions.xml with your own links to your custom html
+
+## Push-AzureADB2CPolicyToTenant 
+
+Uploads Custom Policy file(s) to your tenant, overwriting existing versions
+
+```powershell
+NAME
+    Push-AzureADB2CPolicyToTenant
+    
+SYNTAX
+    Push-AzureADB2CPolicyToTenant [[-PolicyPath] <string>] [[-PolicyFile] <string>] [[-TenantName] <string>] [[-AppID] <string>] [[-AppKey] <string>] [[-Azure
+    Cli] <bool>] [<CommonParameters>]
+ ```
+
+- PolicyPath (p)   : where you want to store the downloaded Starter Pack files. Default is current directory
+- PolicyFile (f)   : if to upload a single file. Default is all files
+- TenantName (t)   : if to override the default tenant you are working in
+- AppID (a)        : AppId (client_id) of B2C-Graph-App or App that has the Policy.ReadWrite.TrustFramework permission
+- AppKey (k)       : client_secret for the above app
+- AzureCLI         : if to force the usage of Azure CLI on Windows platform
+
+## Test-AzureADB2CPolicy
+
+```powershell
+NAME
+    Test-AzureADB2CPolicy
+    
+SYNTAX
+    Test-AzureADB2CPolicy [-PolicyFile] <string> [-WebAppName] <string> [[-redirect_uri] <string>] [[-scopes] <string>] [[-AzureCli] <bool>] [<CommonParameter
+    s>]
+```
+
+- PolicyFile (p)   : RelyingParty Custom Policy file to use, like ./SignupOrSignin.xml
+- WebAppName (n)   : DisplayName of the webapp to use, like Test-WebApp
+- redirect_uri (r) : Redirect uri to use. Default is https://jwt.ms
+- scopes (s)       : additional scopes to add. You don't need to specify openid offline_access
+- AzureCLI         : if to force the usage of Azure CLI on Windows platform
+
+## Delete-AzureADB2CPolicyFromTenant
+
+Enumerates all policy files in directory and deletes the policy in the tenant
+
+```powershell
+NAME
+    Delete-AzureADB2CPolicyFromTenant
+    
+SYNTAX
+    Delete-AzureADB2CPolicyFromTenant [[-PolicyPath] <string>] [[-PolicyFile] <string>] [[-TenantName] <string>] [[-AppID] <string>] [[-AppKey] <string>] [[-A
+    zureCli] <bool>] [<CommonParameters>]
+```
+
+- PolicyPath (p)   : where you want to store the downloaded Starter Pack files. Default is current directory
+- PolicyFile (f)   : if to upload a single file. Default is all files
+- TenantName (t)   : if to override the default tenant you are working in
+- AppID (a)        : AppId (client_id) of B2C-Graph-App or App that has the Policy.ReadWrite.TrustFramework permission
+- AppKey (k)       : client_secret for the above app
+- AzureCLI         : if to force the usage of Azure CLI on Windows platform
+
+## Set-AzureADB2CClaimsProvider
+
+Adds Claims Provider config to your TrustFrameworkExtensions.xml file. If you want to add Azure AD, Google, MSA, Linkedin, etc, quickly, this cmdlet is for you.
+
+```powershell
+NAME
+    Set-AzureADB2CClaimsProvider
+    
+SYNTAX
+    Set-AzureADB2CClaimsProvider [[-PolicyPath] <string>] [-ProviderName] <string> [[-client_id] <string>] [[-AadTenantName] <string>] [[-BasePolicyFileName] 
+    <string>] [[-ExtPolicyFileName] <string>] [<CommonParameters>]
+```
+
+- PolicyPath (p)   : where you want to store the downloaded Starter Pack files. Default is current directory
+- ProviderName (i) : must be either or google, twitter, linkedin, amazon, facebook, azuread or msa
+- client_id (c)    : client_id for the provider. If not specified, value in b2cAppSettings.json is used
+- AadTenantName (a): For Azure AD you need to specify contoso.com, etc
+- BasePolicyFileName (b) : name of trustFrameworkBase.xml, if named differently
+- ExtPolicyFileName (e) : name of TrustFrameworkExtensions.xml, if named differently
+
+## Read-AzureADB2CConfig
+
+Loads the settings in the b2cAppSettings.json file. This is done automatically if you connect with Connect-AzureADB 2CEnv using the -ConfigPath file. But if you didn't or have changed some settings, this is how your reload it.
+
+```powershell
+NAME
+    Read-AzureADB2CConfig
+    
+SYNTAX
+    Read-AzureADB2CConfig [[-TenantName] <string>] [[-PolicyPath] <string>] [[-PolicyPrefix] <string>] [[-KeepPolicyIds] <bool>] [-ConfigPath] <string> [[-Azu
+    reCli] <bool>] [<CommonParameters>]
+```
+
+## Set-AzureADB2CAppInsights
+
+Adds the needed config in the RelyingParty files for sending events to AppInsights. This is really useful for troubleshooting a Custom Policy.
+
+```powershell
+NAME
+    Set-AzureADB2CAppInsights
+    
+SYNTAX
+    Set-AzureADB2CAppInsights [[-PolicyPath] <string>] [[-PolicyFile] <string>] [[-InstrumentationKey] <string>] [<CommonParameters>]
+```
+
+## New-AzureADB2CTestApp
+
+Creates an App Registration for a test webapp that you c an use to test your Custom Policies.
+
+```powershell
+NAME
+    New-AzureADB2CTestApp
+    
+SYNTAX
+    New-AzureADB2CTestApp [-DisplayName] <string> [[-AppID] <string>] [[-AppKey] <string>] [[-AzureCli] <bool>] [<CommonParameters>]
+```
+
+## Set-AzureADB2CGrantPermissions
+
+Helper cmdlet that grants permission to an App Registration. Only needed on the Windows platform as az cli has built in support for this.
+
+```powershell
+NAME
+    Set-AzureADB2CGrantPermissions
+    
+SYNTAX
+    Set-AzureADB2CGrantPermissions [[-TenantName] <string>] [[-AppID] <string>] [[-AppKey] <string>] [-AppDisplayName] <string> [<CommonParameters>]
+```
+
+## Get-AzureADB2CAccessToken
+
+Gets your access token from your local cache. Windows only

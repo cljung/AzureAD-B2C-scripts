@@ -1156,7 +1156,7 @@ switch ( $ProviderName.ToLower() ) {
       $claimsExchangeId= $AadTenantDisplayName + "Exchange"
       $claimsProviderXml = $aadSingleTenantCP
   }
-  default { write-error "IdP name must be either or google, twitter, linkedin, amazon or msa"; return }
+  default { write-error "IdP name must be either or google, twitter, linkedin, amazon, facebook, azuread or msa"; return }
 }
 
 if ( $ext.TrustFrameworkPolicy.ClaimsProviders.InnerXml -imatch $tpId ) {
