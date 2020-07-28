@@ -1443,7 +1443,8 @@ function New-AzureADB2CTestApp
 (
     [Parameter(Mandatory=$true)][Alias('n')][string]$DisplayName = "Test-WebApp",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
-    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = ""
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
 )
 {
     $oauth = $null
@@ -1451,6 +1452,9 @@ function New-AzureADB2CTestApp
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
 
     $tenantName = $global:tenantName
+
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isWinOS ) { $AzureCLI = $True}
 
     $requiredResourceAccess=@"
     [
@@ -1470,23 +1474,43 @@ function New-AzureADB2CTestApp
     ]
 "@ | ConvertFrom-json
 
-    $reqAccess=@()
-    foreach( $resApp in $requiredResourceAccess ) {
-        $req = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
-        $req.ResourceAppId = $resApp.resourceAppId
-        foreach( $ra in $resApp.resourceAccess ) {
-            $req.ResourceAccess += New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $ra.Id,$ra.type
+    if ( $False -eq $AzureCli ) {
+        $reqAccess=@()
+        foreach( $resApp in $requiredResourceAccess ) {
+            $req = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
+            $req.ResourceAppId = $resApp.resourceAppId
+            foreach( $ra in $resApp.resourceAccess ) {
+                $req.ResourceAccess += New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $ra.Id,$ra.type
+            }
+            $reqAccess += $req
         }
-        $reqAccess += $req
+        write-output "Creating application $DisplayName"
+        $app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "https://$TenantName/$DisplayName" -ReplyUrls @("https://jwt.ms") -RequiredResourceAccess $reqAccess -Oauth2AllowImplicitFlow $true
+
+        write-output "Creating ServicePrincipal $DisplayName"
+        $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
+    } else {
+        write-output "Creating application $DisplayName"
+        $app = (az ad app create --display-name $DisplayName --identifier-uris "http://$TenantName/$DisplayName" --reply-urls "https://jwt.ms" | ConvertFrom-json)
+
+        write-output "Creating ServicePrincipal $DisplayName"
+        $sp = (az ad sp create --id $app.appId | ConvertFrom-json)
+
+        foreach( $resApp in $requiredResourceAccess ) {
+            $rApp = (az ad sp list --filter "appId eq '$($resApp.resourceAppId)'" | ConvertFrom-json)
+            $rApp.DisplayName
+            foreach( $ra in $resApp.resourceAccess ) {
+                $ret = (az ad app permission add --id $sp.appId --api $resApp.resourceAppId --api-permissions "$($ra.Id)=$($ra.type)")
+                if ( "Scope" -eq $ra.type) {
+                    $perm = ($rApp.oauth2Permissions | where { $_.id -eq "$($ra.Id)"})
+                } else {
+                    $perm = ($rApp.appRoles | where { $_.id -eq "$($ra.Id)"})
+                }
+                $perm.Value
+            }        
+        }
+        az ad app permission admin-consent --id $sp.appId 
     }
-
-    write-output "Creating application $DisplayName"
-    $app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "https://$TenantName/$DisplayName" -ReplyUrls @("https://jwt.ms") -RequiredResourceAccess $reqAccess -Oauth2AllowImplicitFlow $true
-
-    write-output "Creating ServicePrincipal $DisplayName"
-    $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
-
-
     # -----------------------------------------------------------------------------------------
     # Patch WebApp with attributes Poweshell can't
     # -----------------------------------------------------------------------------------------
@@ -1500,6 +1524,8 @@ function New-AzureADB2CTestApp
     $body = @{ api = @{ requestedAccessTokenVersion = 2 }; SignInAudience = "AzureADandPersonalMicrosoftAccount" }
     Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method PATCH -Body ($body | ConvertTo-json) -ContentType "application/json"
 
-    Set-AzureADB2CGrantPermissions -n $DisplayName
+    if ( $False -eq $AzureCli ) {
+        Set-AzureADB2CGrantPermissions -n $DisplayName
+    }
 
 }
