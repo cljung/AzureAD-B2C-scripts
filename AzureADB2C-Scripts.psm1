@@ -1491,7 +1491,7 @@ function New-AzureADB2CTestApp
         $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
     } else {
         write-output "Creating application $DisplayName"
-        $app = (az ad app create --display-name $DisplayName --identifier-uris "http://$TenantName/$DisplayName" --reply-urls "https://jwt.ms" | ConvertFrom-json)
+        $app = (az ad app create --display-name $DisplayName --identifier-uris "http://$TenantName/$DisplayName" --reply-urls "https://jwt.ms" --oauth2-allow-implicit-flow true | ConvertFrom-json)
 
         write-output "Creating ServicePrincipal $DisplayName"
         $sp = (az ad sp create --id $app.appId | ConvertFrom-json)
