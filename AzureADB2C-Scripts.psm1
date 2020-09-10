@@ -426,6 +426,7 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$true)][Alias('n')][string]$WebAppName = "",
     [Parameter(Mandatory=$false)][Alias('r')][string]$redirect_uri = "https://jwt.ms",
     [Parameter(Mandatory=$false)][Alias('s')][string]$scopes = "",
+    [Parameter(Mandatory=$false)][Alias('t')][string]$response_type = "id_token",
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -484,11 +485,10 @@ function Test-AzureADB2CPolicy
         }
     } else {
         $scope = "openid"
-        $response_type = "id_token"
         # if extra scopes passed on cmdline, then we will also ask for an access_token
         if ( "" -ne $scopes ) {
             $scope = "openid offline_access $scopes"
-            $response_type = "id_token token"
+            $response_type = "$response_type token"
         }
         $qparams = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}&prompt=login&disable_cache=true" `
                     -f $app.AppId.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type
