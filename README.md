@@ -101,6 +101,17 @@ Connect-AzureADB2CEnv -ConfigPath .\b2cAppsettings.json
 # or
 Connect-AzureADB2CEnv -t "yourtenant"
 ```
+## The easy way - New-AzureADB2CPolicyProject
+The cmdlet ***New-AzureADB2CPolicyProject*** is a wrapper that will execute the following cmdlets if you prefer to quickly get going and accept all defaults.
+
+```powershell
+    Get-AzureADB2CStarterPack -PolicyPath $PolicyPath
+    Set-AzureADB2CPolicyDetails -TenantName $TenantName -PolicyPath $PolicyPath -PolicyPrefix $PolicyPrefix
+    Set-AzureADB2CCustomAttributeApp -PolicyPath $PolicyPath
+    Set-AzureADB2CAppInsights -PolicyPath $PolicyPath
+    Set-AzureADB2CCustomizeUX -PolicyPath $PolicyPath
+```
+After you have run ***New-AzureADB2CPolicyProject***, you can directly push them to your tenant and test them.  
 
 ## Download the Custom Policy Starter Pack and modify them to your tenant
 

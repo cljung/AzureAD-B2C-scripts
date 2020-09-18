@@ -24,19 +24,39 @@ function Get-AzureADB2CStarterPack(
     DownloadFile "$urlStarterPackBase/$PolicyType/ProfileEdit.xml" $PolicyPath
 }
 
+function New-AzureADB2CPolicyProject
+(
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
+    [Parameter(Mandatory=$false)][Alias('x')][string]$PolicyPrefix = "",
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
+    )
+{
+    Get-AzureADB2CStarterPack -PolicyPath $PolicyPath
+    Set-AzureADB2CPolicyDetails -TenantName $TenantName -PolicyPath $PolicyPath -PolicyPrefix $PolicyPrefix
+    Set-AzureADB2CCustomAttributeApp -PolicyPath $PolicyPath
+    Set-AzureADB2CAppInsights -PolicyPath $PolicyPath
+    Set-AzureADB2CCustomizeUX -PolicyPath $PolicyPath
+}
+
 function Set-AzureADB2CPolicyDetails
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('x')][string]$PolicyPrefix = "",
-    [Parameter(Mandatory=$false)][string]$IefAppName = "IdentityExperienceFramework",
-    [Parameter(Mandatory=$false)][string]$IefProxyAppName = "ProxyIdentityExperienceFramework",    
+    [Parameter(Mandatory=$false)][string]$IefAppName = "",
+    [Parameter(Mandatory=$false)][string]$IefProxyAppName = "",    
     [Parameter(Mandatory=$false)][string]$ExtAppDisplayName = "b2c-extensions-app",     # name of add for b2c extension attributes
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
 
 if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
+if ( "" -eq $IefAppName ) { $IefAppName = $global:b2cAppSettings.IefAppName}
+if ( "" -eq $IefAppName ) { $IefAppName = "IdentityExperienceFramework"}
+if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = $global:b2cAppSettings.IefProxyAppName}
+if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = "ProxyIdentityExperienceFramework"}
+
 $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
 if ( $isWinOS ) { $AzureCLI = $True}
 
