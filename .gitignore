@@ -1,6 +1,7 @@
 #
 demo*/
 tmp/
+other/
 
 # 
 *.pfx
