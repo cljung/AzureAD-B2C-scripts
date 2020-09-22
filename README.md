@@ -121,7 +121,7 @@ you are effectivly executing this sequence of commands, which means you will dow
     Set-AzureADB2CAppInsights 
     Set-AzureADB2CCustomizeUX 
 ```
-After you have run ***New-AzureADB2CPolicyProject***, you can directly push them to your tenant and test them (see AzureADB2CPolicyToTenant below)
+After you have run ***New-AzureADB2CPolicyProject***, you can directly push them to your tenant and test them (see Push-AzureADB2CPolicyToTenant below)
 
 ## Download the Custom Policy Starter Pack and modify them to your tenant
 
