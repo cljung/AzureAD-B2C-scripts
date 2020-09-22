@@ -625,6 +625,11 @@ function Set-AzureADB2CAppInsights
     
     if ( "" -eq $InstrumentationKey) { $InstrumentationKey = $global:InstrumentationKey }
     
+    if ( 36 -ne $InstrumentationKey.Length ) {
+        write-host "InstrumentationKey needs to be a guid"
+        return 
+    }
+    
     $JourneyInsights = @"
     <JourneyInsights TelemetryEngine="ApplicationInsights" InstrumentationKey="{InstrumentationKey}" 
     DeveloperMode="true" ClientEnabled="true" ServerEnabled="true" TelemetryVersion="1.0.0" />
