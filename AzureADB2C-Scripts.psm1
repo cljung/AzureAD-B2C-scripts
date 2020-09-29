@@ -1,6 +1,7 @@
 function Get-AzureADB2CStarterPack(
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
-    [Parameter(Mandatory=$false)][Alias('b')][string]$PolicyType = "SocialAndLocalAccounts"    
+    [Parameter(Mandatory=$false)][Alias('b')][string]$PolicyType = "SocialAndLocalAccounts",
+    [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = ""    
 )
 {
     $urlStarterPackBase = "https://raw.githubusercontent.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack/master" #/SocialAndLocalAccounts/TrustFrameworkBase.xml
@@ -17,11 +18,16 @@ function Get-AzureADB2CStarterPack(
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }
-    DownloadFile "$urlStarterPackBase/$PolicyType/TrustFrameworkBase.xml" $PolicyPath
-    DownloadFile "$urlStarterPackBase/$PolicyType/TrustFrameworkExtensions.xml" $PolicyPath
-    DownloadFile "$urlStarterPackBase/$PolicyType/SignUpOrSignin.xml" $PolicyPath
-    DownloadFile "$urlStarterPackBase/$PolicyType/PasswordReset.xml" $PolicyPath
-    DownloadFile "$urlStarterPackBase/$PolicyType/ProfileEdit.xml" $PolicyPath
+
+    if ( "" -ne $PolicyFile ) {
+        DownloadFile "$urlStarterPackBase/$PolicyType/$PolicyFile" $PolicyPath
+    } else {
+        DownloadFile "$urlStarterPackBase/$PolicyType/TrustFrameworkBase.xml" $PolicyPath
+        DownloadFile "$urlStarterPackBase/$PolicyType/TrustFrameworkExtensions.xml" $PolicyPath
+        DownloadFile "$urlStarterPackBase/$PolicyType/SignUpOrSignin.xml" $PolicyPath
+        DownloadFile "$urlStarterPackBase/$PolicyType/PasswordReset.xml" $PolicyPath
+        DownloadFile "$urlStarterPackBase/$PolicyType/ProfileEdit.xml" $PolicyPath
+    }
 }
 
 function New-AzureADB2CPolicyProject
@@ -43,6 +49,7 @@ function Set-AzureADB2CPolicyDetails
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
+    [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "",
     [Parameter(Mandatory=$false)][Alias('x')][string]$PolicyPrefix = "",
     [Parameter(Mandatory=$false)][string]$IefAppName = "",
     [Parameter(Mandatory=$false)][string]$IefProxyAppName = "",    
@@ -66,13 +73,11 @@ Function UpdatePolicyId([string]$PolicyId) {
     }
     return $PolicyId
 }
-# process all XML Policy files and update elements and attributes to our values
-Function ProcessPolicyFiles( [string]$PolicyPath ) {
-    $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
-    foreach( $file in $files ) {
+
+Function ProcessPolicyFile( [string]$PolicyPath, [string]$file ) {
         write-host "Modifying Policy file $file..."
-        $PolicyFile = (Join-Path -Path $PolicyPath -ChildPath $file)
-        [xml]$xml = Get-Content $PolicyFile
+        $PolicyFileName = (Join-Path -Path $PolicyPath -ChildPath $file)
+        [xml]$xml = Get-Content $PolicyFileName
         $xml.TrustFrameworkPolicy.PolicyId = UpdatePolicyId( $xml.TrustFrameworkPolicy.PolicyId )
         $xml.TrustFrameworkPolicy.PublicPolicyUri = UpdatePolicyId( $xml.TrustFrameworkPolicy.PublicPolicyUri.Replace( $xml.TrustFrameworkPolicy.TenantId, $TenantName) )
         $xml.TrustFrameworkPolicy.TenantId = $TenantName
@@ -123,7 +128,14 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
                 }
             }
         }
-        $xml.Save($PolicyFile)
+        $xml.Save($PolicyFileName)
+}
+
+# process all XML Policy files and update elements and attributes to our values
+Function ProcessPolicyFiles( [string]$PolicyPath ) {
+    $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
+    foreach( $file in $files ) {
+        ProcessPolicyFile $PolicyPath $file
     }
 }
 
@@ -167,8 +179,127 @@ if ( ! $PolicyPrefix.EndsWith("_") ) {
     $PolicyPrefix = "$($PolicyPrefix)_" 
 }
 # 
-ProcessPolicyFiles $PolicyPath
 
+if ( "" -ne $PolicyFile ) {
+    ProcessPolicyFile $PolicyPath $PolicyFile
+} else {
+    ProcessPolicyFiles $PolicyPath
+}
+
+
+}
+
+function Get-AzureADB2CPolicyId
+(
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyId = "",
+    [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "",
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
+    )
+{
+    $oauth = $null
+    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+    if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isWinOS ) { $AzureCLI = $True}    
+
+    # either try and use the tenant name passed or grab the tenant from current session
+    <##>
+    $tenantID = ""
+    $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+    $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    <##>
+    
+    <##>
+    if ( "" -eq $tenantID ) {
+        write-host "Unknown Tenant"
+        return
+    }
+    #write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
+    
+    # check the B2C Graph App passed
+    if ( $True -eq $AzureCli ) {
+        $app = (az ad app show --id $AppID | ConvertFrom-json)
+    } else {
+        $app = Get-AzureADApplication -Filter "AppID eq '$AppID'"
+    }
+    if ( $null -eq $app ) {
+        write-host "App not found in B2C tenant: $AppID"
+        return
+    } else {
+        #write-host "`Authenticating as App $($app.DisplayName), AppID $AppID"
+    }
+       
+    # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/directory-assign-admin-roles#b2c-user-flow-administrator
+    # get an access token for the B2C Graph App
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+    
+    write-host "Getting policy $PolicyId..."
+    $url = "https://graph.microsoft.com/beta/trustFramework/policies/$PolicyId/`$value"
+    $resp = Invoke-RestMethod -Method GET -Uri $url -ContentType "application/xml" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} 
+    if ( "" -eq $PolicyFile ) {
+        write-host $resp.OuterXml
+    } else {
+        Set-Content -Path $PolicyFile -Value $resp.OuterXml 
+    }
+
+}
+
+function List-AzureADB2CPolicyIds
+(
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyId = "",
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
+    )
+{
+    $oauth = $null
+    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+    if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isWinOS ) { $AzureCLI = $True}    
+
+    # either try and use the tenant name passed or grab the tenant from current session
+    <##>
+    $tenantID = ""
+    $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+    $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    <##>
+    
+    <##>
+    if ( "" -eq $tenantID ) {
+        write-host "Unknown Tenant"
+        return
+    }
+    #write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
+    
+    # check the B2C Graph App passed
+    if ( $True -eq $AzureCli ) {
+        $app = (az ad app show --id $AppID | ConvertFrom-json)
+    } else {
+        $app = Get-AzureADApplication -Filter "AppID eq '$AppID'"
+    }
+    if ( $null -eq $app ) {
+        write-host "App not found in B2C tenant: $AppID"
+        return
+    } else {
+        #write-host "`Authenticating as App $($app.DisplayName), AppID $AppID"
+    }
+       
+    # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/directory-assign-admin-roles#b2c-user-flow-administrator
+    # get an access token for the B2C Graph App
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+    
+    $url = "https://graph.microsoft.com/beta/trustFramework/policies"
+    $resp = Invoke-RestMethod -Method GET -Uri $url -ContentType "application/xml" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} 
+    $resp.value | ConvertTo-json
 
 }
 
@@ -405,14 +536,14 @@ function Set-AzureADB2CCustomizeUX
             "urn:com:microsoft:aad:b2c:elements:globalexception:1.0.0" { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:globalexception:1.2.0" } 
             "urn:com:microsoft:aad:b2c:elements:globalexception:1.1.0" { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:globalexception:1.2.0" }
             "urn:com:microsoft:aad:b2c:elements:idpselection:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:providerselection:1.2.0" }
-            "urn:com:microsoft:aad:b2c:elements:multifactor:1.0.0"     { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:multifactor:1.2.0" }
-            "urn:com:microsoft:aad:b2c:elements:multifactor:1.1.0"     { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:multifactor:1.2.0" }
+            "urn:com:microsoft:aad:b2c:elements:multifactor:1.0.0"     { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:multifactor:1.2.1" }
+            "urn:com:microsoft:aad:b2c:elements:multifactor:1.1.0"     { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:multifactor:1.2.1" }
     
-            "urn:com:microsoft:aad:b2c:elements:unifiedssd:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:unifiedssd:1.2.0" } 
-            "urn:com:microsoft:aad:b2c:elements:unifiedssp:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:unifiedssp:1.2.0" } 
+            "urn:com:microsoft:aad:b2c:elements:unifiedssd:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:unifiedssd:2.1.0" } 
+            "urn:com:microsoft:aad:b2c:elements:unifiedssp:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:unifiedssp:2.1.0" } 
     
-            "urn:com:microsoft:aad:b2c:elements:selfasserted:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:selfasserted:1.2.0" } 
-            "urn:com:microsoft:aad:b2c:elements:selfasserted:1.1.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:selfasserted:1.2.0" }
+            "urn:com:microsoft:aad:b2c:elements:selfasserted:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:selfasserted:2.1.0" } 
+            "urn:com:microsoft:aad:b2c:elements:selfasserted:1.1.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:selfasserted:2.1.0" }
         }  
         if ( $true -eq $DownloadHtmlTemplates) {
             $url = "https://$tenantShortName.b2clogin.com/static" + $contDef.LoadUri.Replace("~", "")
@@ -1559,4 +1690,65 @@ function New-AzureADB2CTestApp
         Set-AzureADB2CGrantPermissions -n $DisplayName
     }
 
+}
+
+function Push-AzureADB2CHtmlContent (
+    [Parameter(Mandatory=$true)][Alias('f')][string]$LocalFile = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$StorageAccountName = "",
+    [Parameter(Mandatory=$false)][Alias('p')][string]$ContainerPath = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$StorageAccountKey = "",
+    [Parameter(Mandatory=$false)][Alias('e')][string]$EndpointSuffix = "core.windows.net"
+    )
+{
+    $body = (Get-Content $LocalFile)
+    $FileName = Split-Path $LocalFile -leaf
+
+    if ( "" -eq $StorageAccountName ) { $StorageAccountName = $global:b2cAppSettings.AzureStorageAccount.AccountName}
+    if ( "" -eq $StorageAccountKey ) { $StorageAccountKey = $global:b2cAppSettings.AzureStorageAccount.AccountKey}
+    if ( "" -eq $ContainerPath) { $ContainerPath = "$($global:b2cAppSettings.AzureStorageAccount.ContainerName)/$($global:b2cAppSettings.AzureStorageAccount.Path)" }
+
+    $StorageContainerName = $ContainerPath.Split("/")[0]
+    $Path = $ContainerPath.Substring($StorageContainerName.Length+1)
+
+    $Url = "https://$StorageAccountName.blob.$EndpointSuffix/$StorageContainerName/$path/$Filename"
+
+    $contentType = "text/html"
+    try {
+        Add-Type -AssemblyName "System.Web"
+        $contentType = [System.Web.MimeMapping]::GetMimeMapping($FileName)
+    } catch {
+        if ( $FileName.EndsWith(".css")) { $contentType = = "text/css" }
+        if ( $FileName.EndsWith(".jpg") -or $FileName.EndsWith(".jpeg")) { $contentType = = "image/jpeg" }
+        if ( $FileName.EndsWith(".png")) { $contentType = = "image/png" }
+        if ( $FileName.EndsWith(".js")) { $contentType = = "application/x-javascript" }
+    }
+    $method = "PUT"
+    $headerDate = '2014-02-14'
+    $headers = @{"x-ms-version"="$headerDate"}
+    $xmsdate = (get-date -format r).ToString()
+    $headers.Add("x-ms-date",$xmsdate)
+    $bytes = ([System.Text.Encoding]::UTF8.GetBytes($body))
+    $contentLength = $bytes.length
+    $headers.Add("Content-Length","$contentLength")
+    #$headers.Add("Content-Type","$contentType")
+    $headers.Add("x-ms-blob-type","BlockBlob")
+
+    $signatureString = "$method$([char]10)$([char]10)$([char]10)$contentLength$([char]10)$([char]10)$([char]10)$([char]10)$([char]10)$([char]10)$([char]10)$([char]10)$([char]10)"
+    #Add CanonicalizedHeaders
+    $signatureString += "x-ms-blob-type:" + $headers["x-ms-blob-type"] + "$([char]10)"
+    $signatureString += "x-ms-date:" + $headers["x-ms-date"] + "$([char]10)"
+    $signatureString += "x-ms-version:" + $headers["x-ms-version"] + "$([char]10)"
+    #$signatureString += "Content-Type:" + $headers["Content-Type"] + "$([char]10)"
+    #Add CanonicalizedResource
+    $uri = New-Object System.Uri -ArgumentList $url
+    $signatureString += "/" + $StorageAccountName + $uri.AbsolutePath
+    $dataToMac = [System.Text.Encoding]::UTF8.GetBytes($signatureString)
+    $accountKeyBytes = [System.Convert]::FromBase64String($StorageAccountKey)
+    $hmac = new-object System.Security.Cryptography.HMACSHA256((,$accountKeyBytes))
+    $signature = [System.Convert]::ToBase64String($hmac.ComputeHash($dataToMac))
+    $headers.Add("Authorization", "SharedKey " + $StorageAccountName + ":" + $signature);
+
+    write-host "PUT $LocalFile ==> $Url`r`n$contentLength byte(s)"
+    $resp = Invoke-RestMethod -Uri $Url -Method $method -headers $headers -Body $body #-ContentType $contentType
+    $resp
 }
