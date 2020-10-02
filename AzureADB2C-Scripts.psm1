@@ -54,15 +54,23 @@ function Set-AzureADB2CPolicyDetails
     [Parameter(Mandatory=$false)][string]$IefAppName = "",
     [Parameter(Mandatory=$false)][string]$IefProxyAppName = "",    
     [Parameter(Mandatory=$false)][string]$ExtAppDisplayName = "b2c-extensions-app",     # name of add for b2c extension attributes
+    [Parameter(Mandatory=$false)][switch]$Clean = $False,            # if to "clean" the policies and revert to "yourtenant.onmicrosoft.com" etc
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
 
-if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-if ( "" -eq $IefAppName ) { $IefAppName = $global:b2cAppSettings.IefAppName}
-if ( "" -eq $IefAppName ) { $IefAppName = "IdentityExperienceFramework"}
-if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = $global:b2cAppSettings.IefProxyAppName}
-if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = "ProxyIdentityExperienceFramework"}
+if ( $True -eq $Clean ) {
+    $TenantName = "yourtenant.onmicrosoft.com"
+    $IefAppName = "IdentityExperienceFramework"
+    $IefProxyAppName = "ProxyIdentityExperienceFramework"
+    write-output "Making Policies generic for sharing"
+} else {
+    if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
+    if ( "" -eq $IefAppName ) { $IefAppName = $global:b2cAppSettings.IefAppName}
+    if ( "" -eq $IefAppName ) { $IefAppName = "IdentityExperienceFramework"}
+    if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = $global:b2cAppSettings.IefProxyAppName}
+    if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = "ProxyIdentityExperienceFramework"}
+}
 
 $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
 if ( $isWinOS ) { $AzureCLI = $True}
@@ -109,17 +117,30 @@ Function ProcessPolicyFile( [string]$PolicyPath, [string]$file ) {
                             }
                         }
                     }
+                } else {
+                    if ( $True -eq $Clean ) {
+                        foreach( $tp in $cp.TechnicalProfiles ) {
+                            foreach( $metadata in $tp.TechnicalProfile.Metadata ) {
+                                foreach( $item in $metadata.Item ) {
+                                    if ( "client_id" -eq $item.Key ) {
+                                        $item.'#text' = "...add your client_id here..."
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
+
                 if ( "" -ne $ExtAppDisplayName ) {
                     foreach( $tp in $cp.TechnicalProfiles ) {
-                        if ( "AAD-Common" -eq $tp.TechnicalProfile.Id[0] ) {
+                        if ( "AAD-Common" -eq $tp.TechnicalProfile.Id[0] -or "AAD-Common" -eq $tp.TechnicalProfile.Id) {
                             foreach( $metadata in $tp.TechnicalProfile.Metadata ) {
                                 foreach( $item in $metadata.Item ) {
                                     if ( "ClientId" -eq $item.Key ) {
-                                        $item.'#text' = $appExt.AppId
+                                        $item.'#text' = $appExtAppId
                                     }
                                     if ( "ApplicationObjectId" -eq $item.Key ) {
-                                        $item.'#text' = $appExt.objectId
+                                        $item.'#text' = $appExtObjectId
                                     }
                                 }
                             }
@@ -128,6 +149,14 @@ Function ProcessPolicyFile( [string]$PolicyPath, [string]$file ) {
                 }
             }
         }
+        if ( $True -eq $Clean ) {
+            foreach( $rp in $xml.TrustFrameworkPolicy.RelyingParty ) {
+                if ( $null -ne $rp.UserJourneyBehaviors -and $null -ne $rp.UserJourneyBehaviors.JourneyInsights ) {
+                    $rp.UserJourneyBehaviors.JourneyInsights.InstrumentationKey = "...add your key here..."
+                }
+            }
+        }
+
         $xml.Save($PolicyFileName)
 }
 
@@ -141,34 +170,46 @@ Function ProcessPolicyFiles( [string]$PolicyPath ) {
 
 <##>
 $tenantID = ""
-$resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
-$tenantID = $resp.authorization_endpoint.Split("/")[3]    
-<##>
-if ( "" -eq $tenantID ) {
-    write-host "Unknown Tenant"
-    return
-}
-write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
-
-<##>
-write-host "Getting AppID's for $IefAppName / $IefProxyAppName"
-if ( $True -eq $AzureCli ) {
-    $AppIdIEF = (az ad app list --display-name $iefAppName | ConvertFrom-json).AppId
-    $AppIdIEFProxy = (az ad app list --display-name $iefProxyAppName | ConvertFrom-json).AppId
-    if ( "" -ne $ExtAppDisplayName ) {    
-        write-output "Getting AppID's for $ExtAppDisplayName"
-        $appExt = (az ad app list --display-name $ExtAppDisplayName | ConvertFrom-json)
-    }
+$appExtAppId = ""
+$appExtObjectId = ""
+if ( $True -eq $Clean ) {
+    $AppIdIEF = "IdentityExperienceFrameworkAppId"
+    $AppIdIEFProxy = "ProxyIdentityExperienceFrameworkAppId"
+    $appExtAppId = "b2c-extension-app AppId"
+    $appExtObjectId = "b2c-extension-app objectId"
 } else {
-    $AppIdIEF = (Get-AzureADApplication -Filter "DisplayName eq '$iefAppName'").AppId
-    $AppIdIEFProxy = (Get-AzureADApplication -Filter "DisplayName eq '$iefProxyAppName'").AppId  
-    if ( "" -ne $ExtAppDisplayName ) {    
-        write-output "Getting AppID's for $ExtAppDisplayName"
-        $appExt = Get-AzureADApplication -SearchString $ExtAppDisplayName
-        write-output $appExt.AppID
+    $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+    $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    <##>
+    if ( "" -eq $tenantID ) {
+        write-host "Unknown Tenant"
+        return
+    }
+    write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
+
+    <##>
+    write-host "Getting AppID's for $IefAppName / $IefProxyAppName"
+    if ( $True -eq $AzureCli ) {
+        $AppIdIEF = (az ad app list --display-name $iefAppName | ConvertFrom-json).AppId
+        $AppIdIEFProxy = (az ad app list --display-name $iefProxyAppName | ConvertFrom-json).AppId
+        if ( "" -ne $ExtAppDisplayName ) {    
+            write-output "Getting AppID's for $ExtAppDisplayName"
+            $appExt = (az ad app list --display-name $ExtAppDisplayName | ConvertFrom-json)
+            $appExtAppId = $appExt.AppId
+            $appExtObjectId = $appExt.objectId
+       }
+    } else {
+        $AppIdIEF = (Get-AzureADApplication -Filter "DisplayName eq '$iefAppName'").AppId
+        $AppIdIEFProxy = (Get-AzureADApplication -Filter "DisplayName eq '$iefProxyAppName'").AppId  
+        if ( "" -ne $ExtAppDisplayName ) {    
+            write-output "Getting AppID's for $ExtAppDisplayName"
+            $appExt = Get-AzureADApplication -SearchString $ExtAppDisplayName
+            write-output $appExt.AppID
+            $appExtAppId = $appExt.AppId
+            $appExtObjectId = $appExt.objectId
+        }
     }
 }
-
 if ( "" -eq $PolicyPath ) {
     $PolicyPath = (get-location).Path
 }
