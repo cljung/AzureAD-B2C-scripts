@@ -77,6 +77,10 @@ To test the Custom Policy you need to register a dummy webapp in the portal that
 New-AzureADB2CTestApp -n "Test-WebApp"
 ```
 
+This command may fail on granting permissions. This will happen if you haven't given your graph app (the one you created above with aadb2c-create-graph-app.ps1) the permission Directory.ReadWrite.All. In that case, go to portal.azure.com and manually grant the app the permissions.
+
+If the graph app do not have the Application.ReadWrite.All permission, it will fail updating the manifest settings and you are better of deleting the app and to redo this step after you have given the graph app the Application.ReadWrite.All permission.
+
 ### 8. Create Facebook secret
 
 Even though you might not use social login via Facebook, quite alot in the Custom Policies from the Starter Pack requires the key to be there for the policies to upload without error, so create a dummy key for now.
