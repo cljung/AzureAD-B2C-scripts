@@ -626,6 +626,7 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$false)][Alias('r')][string]$redirect_uri = "https://jwt.ms",
     [Parameter(Mandatory=$false)][Alias('s')][string]$scopes = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$response_type = "id_token",
+    [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "", # Chrome, Edge or Firefox
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -634,8 +635,8 @@ function Test-AzureADB2CPolicy
         write-error "File does not exists: $PolicyFile"
         return
     }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
-    if ( $isWinOS ) { $AzureCLI = $True}
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isMacOS ) { $AzureCLI = $True}
 
     [xml]$xml = Get-Content $PolicyFile
     $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
@@ -669,7 +670,26 @@ function Test-AzureADB2CPolicy
     
     $pgm = "chrome.exe"
     $params = "--incognito --new-window"
-    
+    if ( !$IsMacOS ) {
+        if ( $browser -eq "") {
+            $browser = (Get-ItemProperty HKCU:\Software\Microsoft\windows\Shell\Associations\UrlAssociations\http\UserChoice).ProgId
+        }
+        $browser = $browser.Replace("HTML", "").Replace("URL", "")
+        switch( $browser.ToLower() ) {        
+            "firefox" { 
+                $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+                $params = "-private -new-window"
+            } 
+            "chrome" { 
+                $pgm = "chrome.exe"
+                $params = "--incognito --new-window"
+            } 
+            default { 
+                $pgm = "msedge.exe"
+                $params = "-InPrivate -new-window"
+            } 
+        }  
+    }
     if ( $isSAML) {
         if ( $app.IdentifierUris.Count -gt 1 ) {
             $Issuer = ($app.IdentifierUris | where { $_ -imatch $tenantName })
@@ -699,7 +719,7 @@ function Test-AzureADB2CPolicy
     
     write-host "Starting Browser`n$url"
     
-    if ( $isWinOS ) {
+    if ( $isMacOS ) {
         $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
     } else {
         $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
