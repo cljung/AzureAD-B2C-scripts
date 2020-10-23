@@ -1464,6 +1464,18 @@ function New-AzureADB2CIdentityExperienceFrameworkApps
 
     $ProxyDisplayName = "Proxy$DisplayName"
 
+    # check that they don't already exists
+    if ( $False -eq $AzureCli ) {
+        $iefApp = (Get-AzureADApplication -Filter "DisplayName eq '$DisplayName'")
+    } else {
+        $iefApp = (az ad app list --display-name $DisplayName | ConvertFrom-json)
+    }
+    if ( $null -ne $iefApp ) {
+        write-warning "App already exists $DisplayName - You have already configured Identity Experience Framework for this tenant"
+        return
+    }
+
+    return
     if ( $False -eq $AzureCli ) {
         $req1 = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
         $req1.ResourceAppId = $AzureAdGraphApiAppID
