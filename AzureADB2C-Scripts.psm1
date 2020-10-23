@@ -914,7 +914,7 @@ function Connect-AzureADB2CEnv
         $ctx = (az login --tenant $TenantID --allow-no-subscriptions | ConvertFrom-json)
         $Tenant = $ctx[0].tenantId
         $user = $ctx[0].user.name
-        $type = "CLI"
+        $type = " CLI"
     } else {                                                        # Windows
         $ctx = Connect-AzureAD -tenantid $TenantID
         $Tenant = $ctx.TenantDomain
@@ -928,7 +928,8 @@ function Connect-AzureADB2CEnv
     
     write-output $ctx
     
-    $host.ui.RawUI.WindowTitle = "PS AADB2C $type - $user - $Tenant"
+    $TenantShort = $Tenant.Replace(".onmicrosoft.com", "")
+    $host.ui.RawUI.WindowTitle = "B2C $TenantShort - $user$type"
     
     $global:tenantName = $tenantName
     $global:tenantID = $tenantID
@@ -1793,4 +1794,32 @@ function Push-AzureADB2CHtmlContent (
     write-host "PUT $LocalFile ==> $Url`r`n$contentLength byte(s)"
     $resp = Invoke-RestMethod -Uri $Url -Method $method -headers $headers -Body $body #-ContentType $contentType
     $resp
+}
+
+function Start-AzureADB2CPortal
+(
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = ""
+)
+{
+    
+    if ( "" -eq $TenantName ) {
+        $TenantName = $global:TenantName
+    }
+    if ( !($TenantName -imatch ".onmicrosoft.com") ) {
+        $TenantName = $TenantName + ".onmicrosoft.com"
+    }
+    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    
+    $pgm = "chrome.exe"
+    $params = "--incognito --new-window"    
+    $url = "https://portal.azure.com/{0}#blade/Microsoft_AAD_B2CAdmin/TenantManagementMenuBlade/overview" -f $tenantName
+    
+    write-host "Starting Browser`n$url"
+    
+    if ( $isWinOS ) {
+        $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
+    } else {
+        $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
+    }
+        
 }
