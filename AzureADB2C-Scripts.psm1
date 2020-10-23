@@ -698,10 +698,12 @@ function Test-AzureADB2CPolicy
         }
         $url = "https://samltestapp4.azurewebsites.net/SP?Tenant={0}&Policy={1}&Issuer={2}" -f $tenantName, $PolicyId, $Issuer
         # start with Firefox if installed as it has a good extension 'SAML tracer'
+        <# -- change this so that yu start the default browser or the browser passed as arg
         if ( Test-Path "$env:ProgramFiles\Mozilla Firefox" ) {
             $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
             $params = "-private -new-window"
         }
+        #>
     } else {
         $scope = "openid"
         # if extra scopes passed on cmdline, then we will also ask for an access_token
