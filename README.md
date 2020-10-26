@@ -35,7 +35,8 @@ import-module .\AzureADB2C-Scripts.psm1
 
 ### 2. Connect to you B2C tenant
 
-cd```Powershell
+```Powershell
+# since you don't have a config file yet, just specify the tenant name
 Connect-AzureADB2CEnv -t "yourtenant"
 ```
 
@@ -84,12 +85,12 @@ import-module .\AzureADB2C-Scripts.psm1
 Then, run the cmdlet ***Connect-AzureADB2CEnv***. This cmdlet either accepts a tenant name or the path to your b2cAppSettings.json file. If you run it with the ***-t "yourtenant"*** switch, you then need to run ***Read-AzureADB2CConfig*** at some later stage to load the settings you have in your b2cAppSettings.json file.
 
 ```Powershell
-Connect-AzureADB2CEnv -ConfigPath .\b2cAppsettings.json
+Connect-AzureADB2CEnv -ConfigPath .\b2cAppsettings_yourtenant.json
 ```
 ## Create a B2C Custom Policy project based on the B2C Starter Pack
 Azure AD B2C Custom Policies has a starter pack of configuration files located in this [github repo](https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack). When you work with B2C Custom Policies, you normally download the Starter Pack of choice and open them in a text editor to make your configuration modifications. All this work has been compacted in to one powershell command that will do all this for you.
 
-By running it with the `-PolicyPrefix` parameter, you will modify the PolicyId to become `B2C_1A_demo_trustFrameworkExtension`, etc, which helps you having multiple policies in one tenant. 
+By running it with the `-PolicyPrefix` parameter, you will modify the PolicyId to become `B2C_1A_demo_TrustFrameworkExtension`, etc, which helps you having multiple policies in one tenant. 
 
 ```powershell
 New-AzureADB2CPolicyProject -PolicyPrefix "demo"
@@ -140,6 +141,6 @@ See Get-Help <command> for details
 | `Set-AzureADB2CCustomizeUX` | Prepares the policies for UX customizations via setting page version to latest and enabling javascript |                     
 | `Set-AzureADB2CExtensionAttributeForUser` | Updates an extension attributes for user |       
 | `Set-AzureADB2CGrantPermissions` | Grans Permission to a registered App |                
-| `Set-AzureADB2CPolicyDetails ` | Updates the policy file details to make them ready for upload to a specific tenant |                  
+| `Set-AzureADB2CPolicyDetails ` | Updates the policy file details to make them ready for upload to a specific tenant. You can also use this command to clean away details before sharing your policies. |                  
 | `Start-AzureADB2CPortal` | Starts the Azure Portal in the right b2C tenant and with the B2C panel active |                        
 | `Test-AzureADB2CPolicy` | Creates a working url for testing and launches a browser to test a B2C Custom Policy |
