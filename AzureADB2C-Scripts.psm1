@@ -1,3 +1,22 @@
+<#
+.SYNOPSIS
+    Downloads the Azure AD B2C Starer Pack
+
+.DESCRIPTION
+    Downloads the Azure AD B2C Custom Policy Starter Pack from https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack
+
+.PARAMETER PolicyPath
+    Path to store the downloades files. Current Directory is default
+
+.PARAMETER PolicyType
+    The type of policies to download. SocialAndLocalAccounts is default
+
+.PARAMETER PolicyFile
+    Filename if only downloading a single file. 
+
+.EXAMPLE
+    Get-AzureADB2CStarterPack -PolicyType "SocialAndLocalWithMfa"
+#>
 function Get-AzureADB2CStarterPack(
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('b')][string]$PolicyType = "SocialAndLocalAccounts",
@@ -30,6 +49,31 @@ function Get-AzureADB2CStarterPack(
     }
 }
 
+<#
+.SYNOPSIS
+    Starts a new B2C Custom Policies project
+
+.DESCRIPTION
+    Wrapper command that downloads the starter pack, auto-edit the details, prepares custom attributes, upgrades to lates html page versions and enables javascript and sets the AppInsight Instrumentation Key.
+
+.PARAMETER TenantName
+    TenantName to use for auto-editing the policy files.
+
+.PARAMETER PolicyPath
+    Path to store the downloades files. Current Directory is default
+
+.PARAMETER PolicyType
+    The type of policies to download. SocialAndLocalAccounts is default
+
+.PARAMETER PolicyPrefix
+    Prefix to insert in the PolicyIds, so that B2C_1A_TrustFrameworkExtensions becomes B2C_1A_<prefix>_TrustFrameworkExtensions
+
+.EXAMPLE
+    New-AzureADB2CPolicyProject -PolicyPrefix "demo"
+
+.EXAMPLE
+    New-AzureADB2CPolicyProject -PolicyPrefix "demo" -PolicyType "SocialAndLocalWithMfa"
+#>
 function New-AzureADB2CPolicyProject
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
@@ -46,6 +90,46 @@ function New-AzureADB2CPolicyProject
     Set-AzureADB2CCustomizeUX -PolicyPath $PolicyPath
 }
 
+<#
+.SYNOPSIS
+    Auto-edit policy file details
+
+.DESCRIPTION
+    Updates the policy file details to make them ready for upload to a specific tenant
+
+.PARAMETER TenantName
+    TenantName to use for auto-editing the policy files.
+
+.PARAMETER PolicyPath
+    Path to store the downloades files. Current Directory is default
+
+.PARAMETER PolicyType
+    The type of policies to download. SocialAndLocalAccounts is default
+
+.PARAMETER PolicyPrefix
+    Prefix to insert in the PolicyIds, so that B2C_1A_TrustFrameworkExtensions becomes B2C_1A_<prefix>_TrustFrameworkExtensions
+
+.PARAMETER IefAppName
+    Name of IdentityExperienceFramework app. Default is IdentityExperienceFramework
+
+.PARAMETER IefProxyAppName
+    Name of ProxyIdentityExperienceFramework app. Default is ProxyIdentityExperienceFramework
+
+.PARAMETER ExtAppDisplayName
+    Name of the App to use for extension attributes. The default is the b2c-extensions-app
+
+.PARAMETER Clean
+    Cleans the policy files and prepares them for sharing
+
+.EXAMPLE
+    Set-AzureADB2CPolicyDetails -PolicyPrefix "demo"
+
+.EXAMPLE
+    Set-AzureADB2CPolicyDetails -PolicyPrefix "demo" -ExtAppDisplayName "ext-app-name"
+
+.EXAMPLE
+    Set-AzureADB2CPolicyDetails -Clean
+#>
 function Set-AzureADB2CPolicyDetails
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
@@ -73,8 +157,8 @@ if ( $True -eq $Clean ) {
     if ( "" -eq $IefProxyAppName ) { $IefProxyAppName = "ProxyIdentityExperienceFramework"}
 }
 
-$isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
-if ( $isWinOS ) { $AzureCLI = $True}
+$isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+if ( $isMacOS ) { $AzureCLI = $True}
 
 Function UpdatePolicyId([string]$PolicyId) {
     if ( "" -ne $PolicyPrefix ) {
@@ -231,6 +315,31 @@ if ( "" -ne $PolicyFile ) {
 
 }
 
+<#
+.SYNOPSIS
+    Gets a B2C Custom Policy 
+
+.DESCRIPTION
+    Gets a B2C Custom Policy from the tenant policy store by PolicyId
+
+.PARAMETER TenantName
+    TenantName to use for auto-editing the policy files.
+
+.PARAMETER PolicyId
+    PolicyId in the B2C tenant
+
+.PARAMETER PolicyFile
+    Filename to store policy in
+
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    Get-AzureADB2CPolicyId -PolicyId "B2C_1A_demo_TrustFrameworkExtensions"
+#>
 function Get-AzureADB2CPolicyId
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyId = "",
@@ -245,8 +354,8 @@ function Get-AzureADB2CPolicyId
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
-    if ( $isWinOS ) { $AzureCLI = $True}    
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isMacOS ) { $AzureCLI = $True}    
 
     # either try and use the tenant name passed or grab the tenant from current session
     <##>
@@ -291,9 +400,30 @@ function Get-AzureADB2CPolicyId
 
 }
 
+<#
+.SYNOPSIS
+    Lists B2C Custom Policies
+
+.DESCRIPTION
+    Lists B2C Custom Policies from the tenant policy
+
+.PARAMETER TenantName
+    TenantName to use for auto-editing the policy files.
+
+.PARAMETER PolicyId
+    PolicyId in the B2C tenant
+
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    List-AzureADB2CPolicyId
+#>
 function List-AzureADB2CPolicyIds
 (
-    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyId = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
     [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
@@ -304,8 +434,8 @@ function List-AzureADB2CPolicyIds
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
-    if ( $isWinOS ) { $AzureCLI = $True}    
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isMacOS ) { $AzureCLI = $True}    
 
     # either try and use the tenant name passed or grab the tenant from current session
     <##>
@@ -345,6 +475,34 @@ function List-AzureADB2CPolicyIds
 
 }
 
+<#
+.SYNOPSIS
+    Uploads B2C Custom Policies 
+
+.DESCRIPTION
+    Uploads B2C Custom Policies from local path to B2C tenant
+
+.PARAMETER TenantName
+    TenantName to use for auto-editing the policy files.
+
+.PARAMETER PolicyPath
+    Path to policies. Default is current directory
+
+.PARAMETER PolicyFile
+    Policy filename if uploading specific file. Default is all policy files in PolicyPath
+
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    Push-AzureADB2CPolicyToTenant
+
+.EXAMPLE
+    Push-AzureADB2CPolicyToTenant -PolicyFile ".\SignUpOrSignin.xml"
+#>
 function Push-AzureADB2CPolicyToTenant
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
@@ -360,8 +518,8 @@ function Push-AzureADB2CPolicyToTenant
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
-    if ( $isWinOS ) { $AzureCLI = $True}    
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
+    if ( $isMacOS ) { $AzureCLI = $True}    
 
     # enumerate all XML files in the specified folders and create a array of objects with info we need
     Function EnumPoliciesFromPath( [string]$PolicyPath ) {
@@ -471,6 +629,37 @@ function Push-AzureADB2CPolicyToTenant
         
 }
 
+<#
+.SYNOPSIS
+    Sets the B2C extension attributes app
+
+.DESCRIPTION
+    Sets the AppID and objectId for extension attributes in the B2C Custom Policies
+
+.PARAMETER TenantName
+    TenantName to use for auto-editing the policy files.
+
+.PARAMETER PolicyPath
+    Path to policies. Default is current directory
+
+.PARAMETER PolicyFile
+    Filename of TrustFrameworkExtensions.xml if it has a non-default name.
+
+.PARAMETER client_id
+    AppID for the app that handles extension attributes for your policy
+
+.PARAMETER object_id
+    objectID for the app that handles extension attributes for your policy
+
+.PARAMETER AppDisplayName
+    If you name the app to handle the extension attributes, the command will get the client_id and objectId for that app.
+
+.EXAMPLE
+    Set-AzureADB2CCustomAttributeApp
+
+.EXAMPLE
+    Set-AzureADB2CCustomAttributeApp -AppDisplayName "my-ext-app"
+#>
 function Set-AzureADB2CCustomAttributeApp
 (
         [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
@@ -482,8 +671,8 @@ function Set-AzureADB2CCustomAttributeApp
 )
 {
     
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux   
-    if ( $isWinOS ) { $AzureCLI = $True}           
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux   
+    if ( $isMacOS ) { $AzureCLI = $True}           
 
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
@@ -536,13 +725,44 @@ function Set-AzureADB2CCustomAttributeApp
     
 }
 
+<#
+.SYNOPSIS
+    Prepares the policies for UX customizations
+
+.DESCRIPTION
+    Prepares the policies for UX customizations via setting page version to latest and enabling javascript
+
+.PARAMETER PolicyPath
+    Path to policies. Default is current directory
+
+.PARAMETER RelyingPartyFileName
+    Name of Replying Party file. Default is SignupOrSignin.xml
+
+.PARAMETER ExtPolicyFileName
+    Name of TrustFrameworkExtensions file. Default is TrustFrameworkExtensions.xml
+
+.PARAMETER BasePolicyFileName
+    Name of TrustFrameworBase file. Default is TrustFrameworkBase.xml
+
+.PARAMETER DownloadHtmlTemplates
+    If to download the standard html templates to local directory
+
+.PARAMETER HtmlFolderName
+    Local folder name for downloading html files. Default is "html"
+
+.EXAMPLE
+    Set-AzureADB2CCustomizeUX
+
+.EXAMPLE
+    Set-AzureADB2CCustomizeUX -DownloadHtmlTemplates 
+#>
 function Set-AzureADB2CCustomizeUX
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
     [Parameter(Mandatory=$false)][Alias('r')][string]$RelyingPartyFileName = "SignUpOrSignin.xml",
     [Parameter(Mandatory=$false)][Alias('b')][string]$BasePolicyFileName = "TrustFrameworkBase.xml",
     [Parameter(Mandatory=$false)][Alias('e')][string]$ExtPolicyFileName = "TrustFrameworkExtensions.xml",
-    [Parameter(Mandatory=$false)][Alias('d')][boolean]$DownloadHtmlTemplates = $false,    
+    [Parameter(Mandatory=$false)][Alias('d')][switch]$DownloadHtmlTemplates = $false,    
     [Parameter(Mandatory=$false)][Alias('h')][string]$HtmlFolderName = "html",    
     [Parameter(Mandatory=$false)][Alias('u')][string]$urlBaseUx = ""
     )
@@ -619,6 +839,37 @@ function Set-AzureADB2CCustomizeUX
     <##>    
 }
 
+<#
+.SYNOPSIS
+    Runs a B2C Custom Policy
+
+.DESCRIPTION
+    Creates a working url for testing and launches a browser to test a B2C Custom Policy
+
+.PARAMETER PolicyFile
+    Policy to run
+
+.PARAMETER WebAppName
+    Name of WebApp to use as client_id.
+
+.PARAMETER redirect_uri
+    The redirect_uri of the request. Default is https://jwt.ms
+
+.PARAMETER response_types
+    response_types for the request. Default is "id_token"
+
+.PARAMETER scopes
+    Scopes for the request. Default is "openid"
+
+.PARAMETER Browser
+    Browser to use. Values can be "Chrome", "Edge" or "Firefox". Default is to use default browser in OS
+
+.EXAMPLE
+    Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml"
+
+.EXAMPLE
+    Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml" -Browser "Firefox"
+#>
 function Test-AzureADB2CPolicy
 (
     [Parameter(Mandatory=$true)][Alias('p')][string]$PolicyFile,
@@ -729,6 +980,31 @@ function Test-AzureADB2CPolicy
         
 }
 
+<#
+.SYNOPSIS
+    Deletes B2C Custom Policies from a B2C tenant
+
+.DESCRIPTION
+    Enumerates files in PolicyPath and deletes one or more B2C Custom Policies from a B2C tenant. 
+
+.PARAMETER PolicyFile
+    Policy to delete. Default is all policies in the current directory
+
+.PARAMETER TenantName
+    B2C Tenant name to use.
+
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    Delete-AzureADB2CPolicyFromTenant
+
+.EXAMPLE
+    Delete-AzureADB2CPolicyFromTenant -f ".\SignUpOrSignin.xml"
+#>
 function Delete-AzureADB2CPolicyFromTenant
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
@@ -743,8 +1019,8 @@ function Delete-AzureADB2CPolicyFromTenant
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
     if ( "" -eq $TenantName ) { $TenantName = $global:TenantName }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux  
-    if ( $isWinOS ) { $AzureCLI = $True}      
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux  
+    if ( $isMacOS ) { $AzureCLI = $True}      
     # invoke the Graph REST API to upload the Policy
     Function DeletePolicy( [string]$PolicyId) {
         # https://docs.microsoft.com/en-us/graph/api/trustframework-put-trustframeworkpolicy?view=graph-rest-beta
@@ -810,6 +1086,28 @@ function Delete-AzureADB2CPolicyFromTenant
     
 }
 
+<#
+.SYNOPSIS
+    Sets the AppInsign InstrumentationKey
+
+.DESCRIPTION
+    Sets the AppInsign InstrumentationKey in all or one RelyingParty files in PolicyPath
+
+.PARAMETER PolicyFile
+    Policy to update. Default is all policies in the current directory
+
+.PARAMETER PolicyPath
+    PolicyPath to use. Default is current directory
+
+.PARAMETER InstrumentationKey
+    AppInsight InstrumentationKey
+
+.EXAMPLE
+    Set-AzureADB2CAppInsights
+
+.EXAMPLE
+    Set-AzureADB2CAppInsights -InstrumentationKey "280f8d4e-26a4-4d4e-9327-4b76d52ab8e9"
+#>
 function Set-AzureADB2CAppInsights
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",              # either a path and all xml files will be processed
@@ -898,6 +1196,25 @@ function Set-AzureADB2CAppInsights
         
 }
 
+<#
+.SYNOPSIS
+    Connects to an Azure AD B2C tenant
+
+.DESCRIPTION
+    Conects to an Azure AD B2C tenant either via Connect-AzureAD command or az login for CLI version. After login, it sets up global constants
+
+.PARAMETER TenantName
+    Tenant to connect to. If not specified, tenant name must exist in ConfigPath
+
+.PARAMETER ConfigPath
+    ConfigPath to config file
+
+.EXAMPLE
+    Connect-AzureADB2CEnv -t "yourtenant"
+
+.EXAMPLE
+    Connect-AzureADB2CEnv -ConfigPath .\b2cAppSettings_yourtenant.json
+#>
 function Connect-AzureADB2CEnv
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
@@ -918,8 +1235,8 @@ function Connect-AzureADB2CEnv
     if ( !($TenantName -imatch ".onmicrosoft.com") ) {
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
-    if ( $isWinOS ) { $AzureCLI = $True}
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isMacOS ) { $AzureCLI = $True}
 
     if ( $TenantName.Length -eq 36 -and $TenantName.Contains("-") -eq $true)  {
         $TenantID = $TenantName
@@ -973,6 +1290,28 @@ function Connect-AzureADB2CEnv
     
 }
 
+<#
+.SYNOPSIS
+    Loads B2C configuration
+
+.DESCRIPTION
+    Loads B2C configuration from file b2cAppSetings_yourtenant.json
+
+.PARAMETER ConfigPath
+    ConfigPath to config file
+
+.PARAMETER TenantName
+    Tenant to connect to. If not specified, tenant name must exist in ConfigPath
+
+.PARAMETER PolicyPath
+    Path to config file. Default is current directory
+
+.PARAMETER PolicyPrefix
+    PolicyPrefix to load. Prefix is "demo" in B2C_1A_demo_SignUpOrSignin
+
+.EXAMPLE
+    Read-AzureADB2CConfig -ConfigPath .\b2cAppSettings_yourtenant.json
+#>
 function Read-AzureADB2CConfig
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
@@ -988,8 +1327,8 @@ function Read-AzureADB2CConfig
         write-error "Config file not found $ConfigPath"
         return
     }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
-    if ( $isWinOS ) { $AzureCLI = $True}
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isMacOS ) { $AzureCLI = $True}
 
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
@@ -1057,6 +1396,22 @@ function Read-AzureADB2CConfig
         
 }
 
+<#
+.SYNOPSIS
+    List tocken cahce
+
+.DESCRIPTION
+    Lists AzureAD's token cache
+
+.PARAMETER TenantId
+    TenantId (guid). Default is current tenantId in $global:tenantId
+
+.EXAMPLE
+    Get-AzureADB2CAccessToken
+
+.EXAMPLE
+    Get-AzureADB2CAccessToken "280f8d4e-26a4-4d4e-9327-4b76d52ab8e9"
+#>
 function Get-AzureADB2CAccessToken([string]$tenantId) {
     $cache = [Microsoft.IdentityModel.Clients.ActiveDirectory.TokenCache]::DefaultShared
     if ( "" -eq $tenantId ) {
@@ -1067,6 +1422,37 @@ function Get-AzureADB2CAccessToken([string]$tenantId) {
     return $item.AccessToken
 }
 
+<#
+.SYNOPSIS
+    Adds a ClaimsProvider
+
+.DESCRIPTION
+    Adds a ClaimsProvider configuration to the TrustFrameworkExtensions.xml file
+
+.PARAMETER PolicyPath
+    Path to policy files. Default is current directory
+
+.PARAMETER ProviderName
+    Name of provider to add. Must be Google, Twitter, Amazon, LinkedId, AzureAD, MSA or Facebook. For AzureAD, AadtenantName must be defined
+
+.PARAMETER client_id
+    client_id of the registered app in its respecive environment
+
+.PARAMETER AadTenantName
+    Name of AAD tenant in the ClaimsProvider definition for TechnicalProfileId. It will be given the name "{AadtenantName}-OIDC"
+
+.PARAMETER BasePolicyFileName
+    Name of base configuration file. Default is TrustFrameworkBase.xml
+
+.PARAMETER ExtPolicyFileName
+    Name of extension configuration file. Default is TrustFrameworkExtensions.xml
+
+.EXAMPLE
+    Set-AzureADB2CClaimsProvider -ProviderName "Google"
+
+.EXAMPLE
+    Set-AzureADB2CClaimsProvider -ProviderName "AzureAD" -AadTenantName "contoso.com"
+#>
 function Set-AzureADB2CClaimsProvider (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
     [Parameter(Mandatory=$true)][Alias('i')][string]$ProviderName = "",    # google, twitter, amazon, linkedid, AzureAD
@@ -1439,14 +1825,66 @@ $ext.Save("$PolicyPath/TrustFrameworkExtensions.xml")
 
 }
 
+<#
+.SYNOPSIS
+    Enables Identity Experience Framework
+
+.DESCRIPTION
+    Completes the configuration in the B2C tenant for Identity Experience Framework
+
+.PARAMETER TestAppDisplayName
+    Name of test webapp to register that can be used for testing B2C Custom POlicies. It will redirecto jwt.ms
+
+.PARAMETER FacebookSecret
+    Dummy Facebook secret to register so that Starter Pack based on social can work directly
+
+.EXAMPLE
+    Enable-AzureADB2CIdentityExperienceFramework
+
+.EXAMPLE
+    Enable-AzureADB2CIdentityExperienceFramework -n "ABC-WebApp" -f "abc123"
+#>
+Function Enable-AzureADB2CIdentityExperienceFramework
+(
+    [Parameter(Mandatory=$true)][Alias('n')][string]$TestAppDisplayName = "Test-WebApp",
+    [Parameter(Mandatory=$true)][Alias('f')][string]$FacebookSecret = "abc123"              # dummy fb secret
+)
+{
+    New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
+    New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
+    New-AzureADB2CIdentityExperienceFrameworkApps
+    if ( "" -ne $FacebookSecret ) {
+        New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_FacebookSecret" -KeyType "secret" -KeyUse "sig" -Secret $FacebookSecret
+    }
+    if ( "" -ne $TestAppDisplayName ) {
+        New-AzureADB2CTestApp -n $TestAppDisplayName
+    }
+}
+
+<#
+.SYNOPSIS
+    Register Identity Experience Framework Apps
+
+.DESCRIPTION
+    Register Identity Experience Framework Apps IdentityExperienceFramework and ProxyIdentityExperienceFramework
+
+.PARAMETER DisplayName
+    Name of IdentityExperienceFramework App. Default is IdentityExperienceFramework and ProxyIdentityExperienceFramework
+
+.EXAMPLE
+    New-AzureADB2CIdentityExperienceFrameworkApps
+
+.EXAMPLE
+    New-AzureADB2CIdentityExperienceFrameworkApps -DisplayName "IEFApp"
+#>
 function New-AzureADB2CIdentityExperienceFrameworkApps
 (
     [Parameter(Mandatory=$false)][Alias('n')][string]$DisplayName = "IdentityExperienceFramework",
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
 )
 {
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
-    if ( $isWinOS ) { $AzureCLI = $True}
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isMacOS ) { $AzureCLI = $True}
 
     if ( $False -eq $AzureCli ) {
         write-host "Getting Tenant info..."
@@ -1476,7 +1914,6 @@ function New-AzureADB2CIdentityExperienceFrameworkApps
         return
     }
 
-    return
     if ( $False -eq $AzureCli ) {
         $req1 = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
         $req1.ResourceAppId = $AzureAdGraphApiAppID
@@ -1526,77 +1963,44 @@ function New-AzureADB2CIdentityExperienceFrameworkApps
 
 }
 
-function Set-AzureADB2CGrantPermissions
-(
-    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
-    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
-    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
-    [Parameter(Mandatory=$true)][Alias('n')][string]$AppDisplayName = ""
-)
-{
-    $oauth = $null
-    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
-    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+<#
+.SYNOPSIS
+    Registers a B2C IEF Policy Key
 
-    $tenantID = ""
-    if ( "" -eq $TenantName ) {
-        write-host "Getting Tenant info..."
-        $tenant = Get-AzureADTenantDetail
-        if ( $null -eq $tenant ) {
-            write-error "Not logged in to a B2C tenant"
-            return
-        }
-        $tenantName = $tenant.VerifiedDomains[0].Name
-        $tenantID = $tenant.ObjectId
-    } else {
-        if ( !($TenantName -imatch ".onmicrosoft.com") ) {
-            $TenantName = $TenantName + ".onmicrosoft.com"
-        }
-        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
-        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
-    }
-    if ( "" -eq $tenantID ) {
-        write-error "Unknown Tenant"
-        return
-    }
-    write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
+.DESCRIPTION
+    Registers a B2C IEF Policy Key
 
-    $app = Get-AzureADApplication -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
-    $sp = Get-AzureADServicePrincipal -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
+.PARAMETER TenantName
+    Name of tenant. Default is one currently connected to
 
-    if ( $null -eq $app -or $null -eq $sp ) {
-        write-error "No ServicePrincipal with name $AppDisplayName"
-        return
-    }
+.PARAMETER KeyContainerName
+    Name of container
 
-    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="https://graph.microsoft.com/.default Directory.ReadWrite.All"}
-    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+.PARAMETER KeyType
+    Type of key. must be "RSA" or "secret"
 
-    $startTime = (get-date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    $expiryTime = ((get-date).AddYears(2)).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    $scope = ""
-    foreach( $reqResAccess in $app.RequiredResourceAccess ) { 
-        $resource = (Get-AzureADServicePrincipal -All $true | where-object {$_.AppId -eq $reqResAccess.ResourceAppId })
-        $ResourceObjectId = $resource.ObjectId
-        foreach( $ra in $reqResAccess.ResourceAccess ) {
-            $scope += ($resource.oauth2Permissions | where-object {$_.Id -eq $ra.Id}).Value + " "
-        }
-        $body = @{
-            clientId    = $sp.ObjectId
-            consentType = "AllPrincipals"
-            principalId = $null
-            resourceId  = $ResourceObjectId
-            scope       = $scope
-            startTime   = $startTime
-            expiryTime  = $expiryTime 
-        }
-        write-output "Granting $($resource.DisplayName) - $scope to $AppDisplayName"
-        $apiUrl = "https://graph.microsoft.com/beta/oauth2PermissionGrants"
-        Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method POST -Body $($body | convertto-json) -ContentType "application/json"
-    }
+.PARAMETER KeyUse
+    Usage of key. must be "sig" or "enc" for signature or encryption
 
-}
+.PARAMETER secret
+    the secret value
 
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
+
+.EXAMPLE
+    New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
+
+.EXAMPLE
+    New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_FacebookSecret" -KeyType "secret" -KeyUse "sig" -Secret $FacebookSecret
+
+#>
 function New-AzureADB2CPolicyKey
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
@@ -1678,6 +2082,119 @@ function New-AzureADB2CPolicyKey
     write-output "key created: $KeyContainerName"    
 }
 
+<#
+.SYNOPSIS
+    Grants App Permission
+
+.DESCRIPTION
+    Grans Permission to a registered App
+
+.PARAMETER TenantName
+    Name of tenant. Default is one currently connected to
+
+.PARAMETER AppDisplayName
+    Name of registered app
+
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    Set-AzureADB2CGrantPermissions -t "yourtenant" -n "Your-AppName"
+
+#>
+function Set-AzureADB2CGrantPermissions
+(
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
+    [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
+    [Parameter(Mandatory=$true)][Alias('n')][string]$AppDisplayName = ""
+)
+{
+    $oauth = $null
+    if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
+    if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
+
+    $tenantID = ""
+    if ( "" -eq $TenantName ) {
+        write-host "Getting Tenant info..."
+        $tenant = Get-AzureADTenantDetail
+        if ( $null -eq $tenant ) {
+            write-error "Not logged in to a B2C tenant"
+            return
+        }
+        $tenantName = $tenant.VerifiedDomains[0].Name
+        $tenantID = $tenant.ObjectId
+    } else {
+        if ( !($TenantName -imatch ".onmicrosoft.com") ) {
+            $TenantName = $TenantName + ".onmicrosoft.com"
+        }
+        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
+        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
+    }
+    if ( "" -eq $tenantID ) {
+        write-error "Unknown Tenant"
+        return
+    }
+    write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
+
+    $app = Get-AzureADApplication -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
+    $sp = Get-AzureADServicePrincipal -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
+
+    if ( $null -eq $app -or $null -eq $sp ) {
+        write-error "No ServicePrincipal with name $AppDisplayName"
+        return
+    }
+
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="https://graph.microsoft.com/.default Directory.ReadWrite.All"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+
+    $startTime = (get-date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $expiryTime = ((get-date).AddYears(2)).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+    $scope = ""
+    foreach( $reqResAccess in $app.RequiredResourceAccess ) { 
+        $resource = (Get-AzureADServicePrincipal -All $true | where-object {$_.AppId -eq $reqResAccess.ResourceAppId })
+        $ResourceObjectId = $resource.ObjectId
+        foreach( $ra in $reqResAccess.ResourceAccess ) {
+            $scope += ($resource.oauth2Permissions | where-object {$_.Id -eq $ra.Id}).Value + " "
+        }
+        $body = @{
+            clientId    = $sp.ObjectId
+            consentType = "AllPrincipals"
+            principalId = $null
+            resourceId  = $ResourceObjectId
+            scope       = $scope
+            startTime   = $startTime
+            expiryTime  = $expiryTime 
+        }
+        write-output "Granting $($resource.DisplayName) - $scope to $AppDisplayName"
+        $apiUrl = "https://graph.microsoft.com/beta/oauth2PermissionGrants"
+        Invoke-RestMethod -Uri $apiUrl -Headers @{Authorization = "Bearer $($oauth.access_token)" }  -Method POST -Body $($body | convertto-json) -ContentType "application/json"
+    }
+
+}
+
+<#
+.SYNOPSIS
+    Registeres a test webapp
+
+.DESCRIPTION
+    Registeres a test webapp that can be used for testing B2C Custom Policies with. It redirects to jwt.ms
+
+.PARAMETER DisplayName
+    Name of app. 
+
+.PARAMETER AppID
+    AppID for your client_credentials. Default is to use $env:B2CAppID
+
+.PARAMETER AppKey
+    secret for your client_credentials. Default is to use $env:B2CAppKey
+
+.EXAMPLE
+    New-AzureADB2CTestApp -n "ABC-WebApp"
+#>
 function New-AzureADB2CTestApp
 (
     [Parameter(Mandatory=$true)][Alias('n')][string]$DisplayName = "Test-WebApp",
@@ -1692,8 +2209,19 @@ function New-AzureADB2CTestApp
 
     $tenantName = $global:tenantName
 
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
-    if ( $isWinOS ) { $AzureCLI = $True}
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isMacOS ) { $AzureCLI = $True}
+
+    # check that they don't already exists
+    if ( $False -eq $AzureCli ) {
+        $iefApp = (Get-AzureADApplication -Filter "DisplayName eq '$DisplayName'")
+    } else {
+        $iefApp = (az ad app list --display-name $DisplayName | ConvertFrom-json)
+    }
+    if ( $null -ne $iefApp ) {
+        write-warning "App already exists $DisplayName"
+        return
+    }
 
     $requiredResourceAccess=@"
     [
@@ -1769,6 +2297,32 @@ function New-AzureADB2CTestApp
 
 }
 
+<#
+.SYNOPSIS
+    Upload files to Azure Blob Storage
+
+.DESCRIPTION
+    Uploads files to Azure Blob Storage for use of custom html/css/javascript
+
+.PARAMETER LocalFile
+    Path to local file to upload
+
+.PARAMETER StorageAccountName
+    Name of Azure Storage Account
+
+.PARAMETER ConatinerPath
+    Name of Storage Container and the additional path. If can be "containername/path1/path2"
+
+.PARAMETER StorageAccountKey
+    Key to Storage Container
+
+.PARAMETER EndpointSuffix
+    Azure Storage Accounts endpoint suffic. Default is core.windows.net
+
+.EXAMPLE
+    Push-AzureADB2CHtmlContent -f ".\html\unified.html" -a "yourstorageaccount" -p "containername/path1/path2" -k $stgkey
+
+#>
 function Push-AzureADB2CHtmlContent (
     [Parameter(Mandatory=$true)][Alias('f')][string]$LocalFile = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$StorageAccountName = "",
@@ -1830,9 +2384,29 @@ function Push-AzureADB2CHtmlContent (
     $resp
 }
 
+<#
+.SYNOPSIS
+    Starts the Azure Portal
+
+.DESCRIPTION
+    Starts the Azure Portal in the right b2C tenant and with the B2C panel active
+
+.PARAMETER tenantName
+    tenant name to use. Default is current connection
+
+.PARAMETER Browser
+    Browser to use. Values can be "Chrome", "Edge" or "Firefox". Default is to use default browser in OS
+
+.EXAMPLE
+    Start-AzureADB2CPortal
+
+.EXAMPLE
+    Start-AzureADB2CPortal -t "yourtenant" -Browser "Firefox"
+#>
 function Start-AzureADB2CPortal
 (
-    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = ""
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
+    [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "" # Chrome, Edge or Firefox
 )
 {
     
@@ -1842,18 +2416,439 @@ function Start-AzureADB2CPortal
     if ( !($TenantName -imatch ".onmicrosoft.com") ) {
         $TenantName = $TenantName + ".onmicrosoft.com"
     }
-    $isWinOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
     
     $pgm = "chrome.exe"
-    $params = "--incognito --new-window"    
+    $params = "--incognito --new-window"
+    if ( !$IsMacOS ) {
+        if ( $browser -eq "") {
+            $browser = (Get-ItemProperty HKCU:\Software\Microsoft\windows\Shell\Associations\UrlAssociations\http\UserChoice).ProgId
+        }
+        $browser = $browser.Replace("HTML", "").Replace("URL", "")
+        switch( $browser.ToLower() ) {        
+            "firefox" { 
+                $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+                $params = "-private -new-window"
+            } 
+            "chrome" { 
+                $pgm = "chrome.exe"
+                $params = "--incognito --new-window"
+            } 
+            default { 
+                $pgm = "msedge.exe"
+                $params = "-InPrivate -new-window"
+            } 
+        }  
+    }
     $url = "https://portal.azure.com/{0}#blade/Microsoft_AAD_B2CAdmin/TenantManagementMenuBlade/overview" -f $tenantName
     
     write-host "Starting Browser`n$url"
     
-    if ( $isWinOS ) {
+    if ( $isMacOS ) {
         $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
     } else {
         $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
     }
         
+}
+
+<#
+.SYNOPSIS
+    Registers a Graph App
+
+.DESCRIPTION
+    Registers an application with needed Graph API Permissions for use with client credentials operations on B2C tenant
+
+.PARAMETER DisplayName
+    Name of app. Default is "B2C-Graph-App"
+
+.PARAMETER CreateConfigFile
+    If to generate the config file .\b2cAppSetings_yourtenant.json
+
+.EXAMPLE
+    New-AzureADB2CGraphApp
+
+.EXAMPLE
+    New-AzureADB2CGraphApp -n "B2C-GraphApp" -CreateConfigFile
+#>
+Function New-AzureADB2CGraphApp
+(
+    [Parameter(Mandatory=$false)][Alias('n')][string]$DisplayName = "B2C-Graph-App",
+    [Parameter(Mandatory=$false)][switch]$CreateConfigFile = $False,
+    [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
+)
+{
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
+    if ( $isMacOS ) { $AzureCLI = $True}
+
+    $tenantName = $global:tenantName
+    $tenantID = $global:tenantID
+    write-host "$tenantName`n$($tenantId)"
+
+    # 00000003 == MSGraph, 00000002 == AADGraph
+    $requiredResourceAccess=@"
+    [
+        {
+            "resourceAppId": "00000003-0000-0000-c000-000000000000",
+            "resourceAccess": [
+                    {
+                        "id": "cefba324-1a70-4a6e-9c1d-fd670b7ae392",
+                        "type": "Scope"
+                    },
+                    {
+                        "id": "19dbc75e-c2e2-444c-a770-ec69d8559fc7",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "62a82d76-70ea-41e2-9197-370581804d09",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "5b567255-7703-4780-807c-7be8301ae99b",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "1bfefb4e-e0b5-418b-a88f-73c46d2cc8e9",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "df021288-bdef-4463-88db-98f22de89214",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "246dd0d5-5bd0-4def-940b-0421030a5b68",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "79a677f7-b79d-40d0-a36a-3e6f8688dd7a",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "fff194f1-7dce-4428-8301-1badb5518201",
+                        "type": "Role"
+                    },
+                    {
+                        "id": "4a771c9a-1cf2-4609-b88e-3d3e02d539cd",
+                        "type": "Role"
+                    }        ]
+        },
+        {
+            "resourceAppId": "00000002-0000-0000-c000-000000000000",
+            "resourceAccess": [
+                {
+                    "id": "311a71cc-e848-46a1-bdf8-97ff7156d8e6",
+                    "type": "Scope"
+                },
+                {
+                    "id": "5778995a-e1bf-45b8-affa-663a9f3f4d04",
+                    "type": "Role"
+                },
+                {
+                    "id": "78c8a3c8-a07e-4b9e-af1b-b5ccab50a175",
+                    "type": "Role"
+                }
+                    ]
+        }
+    ]
+"@ | ConvertFrom-json
+
+    write-host "`nCreating WebApp $DisplayName..."
+
+    if ( $False -eq $AzureCli ) {
+        $reqAccess=@()
+        foreach( $resApp in $requiredResourceAccess ) {
+            $req = New-Object -TypeName "Microsoft.Open.AzureAD.Model.RequiredResourceAccess"
+            $req.ResourceAppId = $resApp.resourceAppId
+            foreach( $ra in $resApp.resourceAccess ) {
+                $req.ResourceAccess += New-Object -TypeName "Microsoft.Open.AzureAD.Model.ResourceAccess" -ArgumentList $ra.Id,$ra.type
+            }
+            $reqAccess += $req
+        }
+        $app = New-AzureADApplication -DisplayName $DisplayName -IdentifierUris "http://$TenantName/$DisplayName" -ReplyUrls @("https://$DisplayName") -RequiredResourceAccess $reqAccess
+        write-output "AppID`t`t$($app.AppId)`nObjectID:`t$($App.ObjectID)"
+
+        write-host "`nCreating ServicePrincipal..."
+        $sp = New-AzureADServicePrincipal -AccountEnabled $true -AppId $App.AppId -AppRoleAssignmentRequired $false -DisplayName $DisplayName 
+        write-host "AppID`t`t$($sp.AppId)`nObjectID:`t$($sp.ObjectID)"
+
+        write-host "`nCreating App Key / Secret / client_secret - please remember this value and keep it safe"
+        $AppSecret = New-AzureADApplicationPasswordCredential -ObjectId $App.ObjectID
+        $AppSecretValue = $AppSecret.Value
+    } else {
+        $AppSecretValue = (New-Guid).Guid.ToString()
+
+        $app = (az ad app create --display-name $DisplayName --password $AppSecretValue --identifier-uris "http://$TenantName/$DisplayName" --reply-urls "https://$DisplayName" | ConvertFrom-json)
+        write-output "AppID`t`t$($app.AppId)`nObjectID:`t$($App.ObjectID)"
+
+        write-host "`nCreating ServicePrincipal..."
+        $sp = (az ad sp create --id $app.appId | ConvertFrom-json)
+        write-host "AppID`t`t$($sp.AppId)`nObjectID:`t$($sp.ObjectID)"
+
+        foreach( $resApp in $requiredResourceAccess ) {
+            $rApp = (az ad sp list --filter "appId eq '$($resApp.resourceAppId)'" | ConvertFrom-json)
+            $rApp.DisplayName
+            foreach( $ra in $resApp.resourceAccess ) {
+                $ret = (az ad app permission add --id $sp.appId --api $resApp.resourceAppId --api-permissions "$($ra.Id)=$($ra.type)")
+                if ( "Scope" -eq $ra.type) {
+                    $perm = ($rApp.oauth2Permissions | where { $_.id -eq "$($ra.Id)"})
+                } else {
+                    $perm = ($rApp.appRoles | where { $_.id -eq "$($ra.Id)"})
+                }
+                $perm.Value
+            }        
+        }
+        az ad app permission admin-consent --id $sp.appId 
+    }
+
+    $env:B2CAppId=$App.AppId
+    $env:B2CAppKey=$AppSecretValue
+    $global:B2CAppId=$App.AppId
+    $global:B2CAppKey=$AppSecretValue
+
+    write-output "setting ENVVAR B2CAppID=$($App.AppId)"
+    $env:B2CAppId=$App.AppId
+    write-output "setting ENVVAR B2CAppKey=$($AppSecretValue)"
+    $env:B2CAppKey=$AppSecretValue
+
+    if ( $CreateConfigFile ) {
+        $path = (get-location).Path
+        $cfg = (Get-Content "$path\b2cAppSettings.json" | ConvertFrom-json)
+        $global:ConfigPath = $cfg
+        $cfg.ClientCredentials.client_id = $App.AppId
+        $cfg.ClientCredentials.client_secret = $AppSecretValue
+        $cfg.TenantName = $tenantName
+        $ConfigFile = "$path\b2cAppSettings_" + $tenantName.split(".")[0] + ".json"
+        Set-Content -Path $ConfigFile -Value ($cfg | ConvertTo-json) 
+        write-output "Saved to config file $ConfigFile"
+    } else {
+        write-output "Copy-n-paste this to your b2cAppSettings.json file `
+        `"ClientCredentials`": { `
+            `"client_id`": `"$($App.AppId)`", `
+            `"client_secret`": `"$($AppSecretValue)`" `
+        },"
+    }
+}
+
+<#
+.SYNOPSIS
+    Registers a Local Admin user
+
+.DESCRIPTION
+    Registers a Local Admin user in the B2C tenant. This user is not a Signup user but a user given admin permissions in the tenant
+
+.PARAMETER DisplayName
+    DisplayName of user. Default is "GraphExplorer"
+
+.PARAMETER username
+    Name of user. Default is "graphexplorer". This will make the UPN "graphexplorer@yourtenant.onmicrosoft.com"
+
+.PARAMETER Password
+    Password for user. If not specified it will be prompted for
+
+.PARAMETER RoleNames
+    Collection of roles to grant the user, such as @("Directory Readers", "Directory Writers", "Company Administrator")
+
+.EXAMPLE
+    New-AzureADB2CLocalAdmin
+
+.EXAMPLE
+    New-AzureADB2CLocalAdmin -DisplayName "Bob Contoso Admin" -username "bob"
+#>
+Function New-AzureADB2CLocalAdmin
+(
+    [Parameter(Mandatory=$false)][Alias('d')][string]$displayName = "GraphExplorer",
+    [Parameter(Mandatory=$false)][Alias('u')][string]$username = "graphexplorer",
+    [Parameter(Mandatory=$false)][Alias('p')][string]$Password = "",
+    [Parameter(Mandatory=$false)][Alias('r')][string[]]$RoleNames = @("Directory Readers", "Directory Writers") # @("Company Administrator") for Global Admin
+)
+{
+    $tenant = Get-AzureADTenantDetail
+    if ( $null -eq $tenant ) {
+        write-error "Not logged in to a B2C tenant"
+        return
+    }
+    $tenantName = $tenant.VerifiedDomains[0].Name
+    $tenantID = $tenant.ObjectId
+
+    $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
+    if ( "" -eq $Password ) {
+        $cred = Get-Credential -UserName $DisplayName -Message "Enter userid for $TenantName"
+        $PasswordProfile.Password = $cred.GetNetworkCredential().Password
+    } else {
+        $PasswordProfile.Password = $Password
+    }
+    $PasswordProfile.ForceChangePasswordNextLogin = $false
+
+    $user = New-AzureADUser -DisplayName $displayName -mailNickName $username -PasswordPolicies "DisablePasswordExpiration" `
+                    -UserType "Member" -AccountEnabled $true -PasswordProfile $PasswordProfile -UserPrincipalName "$username@$tenantName"
+    write-output "User`t`t$username`nObjectID:`t$($user.ObjectID)"
+
+    foreach( $roleName in $RoleNames) {
+        $role = Get-AzureADDirectoryRole | Where-Object {$_.displayName -eq $roleName}
+        if ( $null -eq $role ) {
+            $roleTemplate = Get-AzureADDirectoryRoleTemplate | ? { $_.DisplayName -eq $roleName }
+            $ret = Enable-AzureADDirectoryRole -RoleTemplateId $roleTemplate.ObjectId        
+            $role = Get-AzureADDirectoryRole | Where-Object {$_.displayName -eq $roleName}
+        }
+        $ret = Add-AzureADDirectoryRoleMember -ObjectId $role.ObjectId -RefObjectId $user.ObjectId
+        write-output "Role`t`t$($role.DisplayName)`nDescription:`t$($role.Description)"
+    }
+}
+
+<#
+.SYNOPSIS
+    Registers an extension attribute
+
+.DESCRIPTION
+    Registers an extension attribute in the B2C tenant
+
+.PARAMETER AppDisplayName
+    DisplayName of the app to use for the extension atribute. Default is "b2c-extension-app"
+
+.PARAMETER AttributeName
+    Name of Attribute. The full name will ne "extensions_{AppID}_{AttributeName}"
+
+.PARAMETER DataType
+    DataType for the attribute. Default is "string"
+
+.EXAMPLE
+    New-AzureADB2CExtensionAttribute -AttributeName "requiresMigration" -DataType "Boolean"
+
+#>
+Function New-AzureADB2CExtensionAttribute
+(
+    [Parameter(Mandatory=$False)][Alias('a')][string]$AppDisplayName = "b2c-extensions-app", # use this for default 
+    [Parameter(Mandatory=$True)][Alias('n')][string]$attributeName = "", 
+    [Parameter(Mandatory=$False)][Alias('d')][string]$dataType = "String" # String, Boolean, Date
+)
+{
+    $appExt = Get-AzureADApplication -SearchString $AppDisplayName
+    if ( $null -eq $appExt ) {
+        write-warning "App does not exist $AppDisplayName"
+    } else {
+        New-AzureADApplicationExtensionProperty -ObjectID $appExt.objectId -DataType $dataType -Name $attributeName -TargetObjects @("User") 
+    }
+}
+<#
+.SYNOPSIS
+    Removes an extension attribute
+
+.DESCRIPTION
+    Removes an extension attribute in the B2C tenant
+
+.PARAMETER AppDisplayName
+    DisplayName of the app to use for the extension atribute. Default is "b2c-extension-app"
+
+.PARAMETER AttributeName
+    Name of Attribute. The full name is "extensions_{AppID}_{AttributeName}"
+
+.EXAMPLE
+    Remove-AzureADB2CExtensionAttribute -AttributeName "requiresMigration"
+
+#>
+Function Remove-AzureADB2CExtensionAttribute
+(
+    [Parameter(Mandatory=$False)][Alias('a')][string]$AppDisplayName = "b2c-extensions-app", # use this for default 
+    [Parameter(Mandatory=$True)][Alias('n')][string]$attributeName = ""
+)
+{
+    $appExt = Get-AzureADApplication -SearchString $AppDisplayName
+    if ( $null -eq $appExt ) {
+        write-warning "App does not exist $AppDisplayName"
+    } else {
+        $fullAttrName = "extension_" + $appExt.AppId.Replace("-","") + "_$attributeName"
+        $attrObj = Get-AzureADExtensionProperty | where {$_.Name -eq $fullAttrName}
+        Remove-AzureADApplicationExtensionProperty -ObjectId $appExt.objectId -ExtensionPropertyId $attrObj.ObjectId
+    }
+}
+
+<#
+.SYNOPSIS
+    Get extension attributes for user
+
+.DESCRIPTION
+    Get extension attributes for user
+
+.PARAMETER signInName
+    The signInName of the user. Can be email, username or phone number. 
+
+.PARAMETER AttributeName
+    objectId of user. Either signInName or objectId must be defined
+
+.EXAMPLE
+    Get-AzureADB2CExtensionAttributesForUser -signInName "alice@contoso.com"
+
+.EXAMPLE
+    Get-AzureADB2CExtensionAttributesForUser -objectId "280f8d4e-26a4-4d4e-9327-4b76d52ab8e9"
+
+#>
+Function Get-AzureADB2CExtensionAttributesForUser
+(
+    [Parameter(Mandatory=$false)][Alias('u')][string]$signInName = "",
+    [Parameter(Mandatory=$false)][Alias('o')][string]$objectId = ""
+)
+{
+    if ( "" -ne $signInName ) {
+        $user = Get-AzureADUser -Filter "signInNames/any(x:x/value eq '$signInName')" -ErrorAction SilentlyContinue
+        if ( $null -eq $user ) {
+            write-error "User with signInName $signInName not found"
+            return
+        }
+        $objectId = $user.ObjectId
+    }
+    Get-AzureADUserExtension -ObjectId $user.ObjectId
+}
+
+<#
+.SYNOPSIS
+    Updates an extension attributes for user
+
+.DESCRIPTION
+    Updates an extension attributes for user
+
+.PARAMETER signInName
+    The signInName of the user. Can be email, username or phone number. 
+
+.PARAMETER AppDisplayName
+    DisplayName of the app to use for the extension atribute. Default is "b2c-extension-app"
+
+.PARAMETER AttributeName
+    objectId of user. Either signInName or objectId must be defined
+
+.PARAMETER AttributeValue
+    Value to set
+
+.EXAMPLE
+    Set-AzureADB2CExtensionAttributeForUser -signInName "alice@contoso.com" -AttributeName "requiresMigration" -AttributeValue "true"
+
+.EXAMPLE
+    Set-AzureADB2CExtensionAttributesForUser -objectId "280f8d4e-26a4-4d4e-9327-4b76d52ab8e9" -AttributeName "requiresMigration" -AttributeValue "true"
+
+#>
+Function Set-AzureADB2CExtensionAttributeForUser
+(
+    [Parameter(Mandatory=$false)][Alias('u')][string]$signInName = "",
+    [Parameter(Mandatory=$false)][Alias('o')][string]$objectId = "",
+    [Parameter(Mandatory=$False)][Alias('n')][string]$AppDisplayName = "b2c-extensions-app", # use this for default 
+    [Parameter(Mandatory=$True)][Alias('a')][string]$attributeName = "",
+    [Parameter(Mandatory=$True)][Alias('v')][string]$attributeValue = ""
+)
+{
+    if ( "" -ne $signInName ) {
+        $user = Get-AzureADUser -Filter "signInNames/any(x:x/value eq '$signInName')" -ErrorAction SilentlyContinue
+        if ( $null -eq $user ) {
+            write-error "User with signInName $signInName not found"
+            return
+        }
+        $objectId = $user.ObjectId
+    }
+    $fullAttrName = $attributeName
+    if ( !$attributeName.StartsWith("extension_") ) {
+        $appExt = Get-AzureADApplication -SearchString $AppDisplayName
+        if ( $null -eq $appExt ) {
+            write-warning "App does not exist $AppDisplayName"
+        }
+        $fullAttrName = "extension_" + $appExt.AppId.Replace("-","") + "_$attributeName"
+    } 
+    Set-AzureADUserExtension -ObjectId $objectId -ExtensionName $fullAttrName  -ExtensionValue $attributeValue
 }
