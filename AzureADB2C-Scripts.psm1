@@ -872,7 +872,8 @@ function Set-AzureADB2CCustomizeUX
 #>
 function Test-AzureADB2CPolicy
 (
-    [Parameter(Mandatory=$true)][Alias('p')][string]$PolicyFile,
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyFile,
+    [Parameter(Mandatory=$false)][Alias('i')][string]$PolicyId,
     [Parameter(Mandatory=$true)][Alias('n')][string]$WebAppName = "",
     [Parameter(Mandatory=$false)][Alias('r')][string]$redirect_uri = "https://jwt.ms",
     [Parameter(Mandatory=$false)][Alias('s')][string]$scopes = "",
@@ -882,22 +883,25 @@ function Test-AzureADB2CPolicy
     )
 {
     
-    if (!(Test-Path $PolicyFile -PathType leaf)) {
-        write-error "File does not exists: $PolicyFile"
-        return
-    }
     $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux    
     if ( $isMacOS ) { $AzureCLI = $True}
 
-    [xml]$xml = Get-Content $PolicyFile
-    $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
-    $tenantName = $xml.TrustFrameworkPolicy.TenantId
-
     $isSAML = $false
-    if ( "SAML2"-ne $xml.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name ) {
-        $isSAML = $false
-    } else {
-        $isSAML = $true
+    $tenantName = $global:TenantName
+    if ( "" -eq $PolicyId ) {
+        if (!(Test-Path $PolicyFile -PathType leaf)) {
+            write-error "File does not exists: $PolicyFile"
+            return
+        }
+        [xml]$xml = Get-Content $PolicyFile
+        $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
+        $tenantName = $xml.TrustFrameworkPolicy.TenantId
+
+        if ( "SAML2"-ne $xml.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name ) {
+            $isSAML = $false
+        } else {
+            $isSAML = $true
+        }
     }
         
     write-host "Getting test app $WebAppName"
@@ -987,8 +991,14 @@ function Test-AzureADB2CPolicy
 .DESCRIPTION
     Enumerates files in PolicyPath and deletes one or more B2C Custom Policies from a B2C tenant. 
 
+.PARAMETER PolicyPath
+    Path to local files to who's PolicyId should be deleted from the B2C tenant. Default is all policies in the current directory
+
 .PARAMETER PolicyFile
     Policy to delete. Default is all policies in the current directory
+
+.PARAMETER PolicyId
+    PolicyId to delete in the B2C tenant
 
 .PARAMETER TenantName
     B2C Tenant name to use.
@@ -1009,6 +1019,7 @@ function Delete-AzureADB2CPolicyFromTenant
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "",
+    [Parameter(Mandatory=$false)][Alias('i')][string]$PolicyId = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
     [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
@@ -1065,7 +1076,9 @@ function Delete-AzureADB2CPolicyFromTenant
     $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
     $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
     
-    if ( "" -ne $PolicyFile ) {
+    if ( "" -ne $PolicyId ) {
+        DeletePolicy $PolicyId
+    } elseif ( "" -ne $PolicyFile ) {
         $PolicyData = Get-Content $PolicyFile # 
         [xml]$xml = $PolicyData
         DeletePolicy $xml.TrustFrameworkPolicy.PolicyId
