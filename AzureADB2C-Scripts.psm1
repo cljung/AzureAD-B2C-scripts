@@ -946,6 +946,10 @@ function Test-AzureADB2CPolicy
         }  
     }
     if ( $isSAML) {
+        if ( 0 -eq $app.SamlMetadataUrl.Length ) {
+            write-error "App has no SamlMetadataUrl set: $WebAppName"
+            return
+        }
         if ( $app.IdentifierUris.Count -gt 1 ) {
             $Issuer = ($app.IdentifierUris | where { $_ -imatch $tenantName })
         } else {
