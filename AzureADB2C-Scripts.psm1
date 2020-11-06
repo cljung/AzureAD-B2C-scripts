@@ -895,7 +895,7 @@ function Test-AzureADB2CPolicy
         }
         [xml]$xml = Get-Content $PolicyFile
         $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
-        $tenantName = $xml.TrustFrameworkPolicy.TenantId
+        #$tenantName = $xml.TrustFrameworkPolicy.TenantId
 
         if ( "SAML2"-ne $xml.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name ) {
             $isSAML = $false
@@ -904,6 +904,11 @@ function Test-AzureADB2CPolicy
         }
     }
         
+    $hostName = "{0}.b2clogin.com" -f $tenantName.Split(".")[0]    
+    if ( "" -ne $global:B2CCustomDomain ) {
+        $hostName = $global:B2CCustomDomain
+    }
+
     write-host "Getting test app $WebAppName"
     if ( $True -eq $AzureCli ) {
         $app = (az ad app list --display-name $WebAppName | ConvertFrom-json)
@@ -975,7 +980,7 @@ function Test-AzureADB2CPolicy
         # Q&D urlencode
         $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20")
     
-        $url = "https://{0}.b2clogin.com/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $tenantName.Split(".")[0], $tenantName, $PolicyId, $qparams
+        $url = "https://{0}/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $hostName, $tenantName, $PolicyId, $qparams
     }
     
     write-host "Starting Browser`n$url"
@@ -2868,4 +2873,36 @@ Function Set-AzureADB2CExtensionAttributeForUser
         $fullAttrName = "extension_" + $appExt.AppId.Replace("-","") + "_$attributeName"
     } 
     Set-AzureADUserExtension -ObjectId $objectId -ExtensionName $fullAttrName  -ExtensionValue $attributeValue
+}
+
+Function Get-AzureADB2CCustomDomain
+(
+    [Parameter(Mandatory=$false)][switch]$SetGlobalVariable = $False 
+)
+{
+    $tenantName = $global:tenantName
+    $AppID = $global:B2CAppID
+    $AppKey = $global:B2CAppKey
+
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Directory.Read.All"}
+    $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
+    
+    $url = "https://graph.microsoft.com/beta/domains"
+    $resp = Invoke-RestMethod -Method GET -Uri $url -ContentType "application/json" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} 
+
+    $B2CCustomDomain = ""
+    foreach( $domain in $resp.value.id) { 
+        if ( !$domain.EndsWith(".onmicrosoft.com") ) {
+            $nsresp = (nslookup -type=CNAME $domain)
+            if ( $True -eq ($null -ne ($nsresp | ? { ".azurefd.net" -match $_ })) ) {
+                $B2CCustomDomain = $domain
+            }
+        }
+    }
+    if ( "" -ne $B2CCustomDomain ) {
+        write-host "$tenantName --> $B2CCustomDomain"
+        if ( $SetGlobalVariable ) {
+            $global:B2CCustomDomain = $B2CCustomDomain
+        }          
+    }
 }
