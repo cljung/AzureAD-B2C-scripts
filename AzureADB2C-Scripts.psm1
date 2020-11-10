@@ -2999,7 +2999,21 @@ $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml = $ext.TrustFrameworkPolicy.C
 
 $rp.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name = "SAML2"
 $rp.TrustFrameworkPolicy.innerXml = $rp.TrustFrameworkPolicy.innerXml.Replace("</BasePolicy>", "</BasePolicy>" + $rpXml )
-
+$attr = $rp.CreateAttribute("ExcludeAsClaim")
+$rp.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.SubjectNamingInfo.Attributes.Append($attr) | Out-null
+$rp.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.SubjectNamingInfo.ExcludeAsClaim="false"
+$rp.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.SubjectNamingInfo.ClaimType="objectId"
+foreach( $outputClaim in $rp.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.OutputClaims.OutputClaim ) {
+    if ( $outputClaim.ClaimTypeReferenceId -eq "email" ) {
+        $outputClaim.ClaimTypeReferenceId = "signInName"
+        $attr = $rp.CreateAttribute("PartnerClaimType")
+        $outputClaim.Attributes.Append($attr) | Out-null
+        $outputClaim.PartnerClaimType="http://schemas.xmlsoap.org/ws/2005/05/identity/claims/emailaddress"
+    }
+    if ( $outputClaim.ClaimTypeReferenceId -eq "objectId" ) {
+        $outputClaim.PartnerClaimType="http://schemas.microsoft.com/identity/claims/objectidentifier"
+    }
+}
 $ext.Save("$PolicyPath/$ExtPolicyFileName")
 
 $rp.Save("$PolicyPath/$RelyingPartyFileName")
