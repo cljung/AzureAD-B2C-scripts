@@ -721,7 +721,7 @@ function Set-AzureADB2CCustomAttributeApp
     
     $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml = $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml + $claimsProviderXml
     
-    $ext.Save("$PolicyPath/TrustFrameworkExtensions.xml")
+    $ext.Save("$PolicyPath/$PolicyFile")
     
 }
 
@@ -895,7 +895,9 @@ function Test-AzureADB2CPolicy
         }
         [xml]$xml = Get-Content $PolicyFile
         $PolicyId = $xml.TrustFrameworkPolicy.PolicyId
-        #$tenantName = $xml.TrustFrameworkPolicy.TenantId
+        if ( "" -eq $tenantName ) {
+            $tenantName = $xml.TrustFrameworkPolicy.TenantId
+        }
 
         if ( "SAML2"-ne $xml.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name ) {
             $isSAML = $false
@@ -907,6 +909,7 @@ function Test-AzureADB2CPolicy
     $hostName = "{0}.b2clogin.com" -f $tenantName.Split(".")[0]    
     if ( "" -ne $global:B2CCustomDomain ) {
         $hostName = $global:B2CCustomDomain
+        write-host "Using B2C Custom Domain" $global:B2CCustomDomain        
     }
 
     write-host "Getting test app $WebAppName"
@@ -956,18 +959,12 @@ function Test-AzureADB2CPolicy
             return
         }
         if ( $app.IdentifierUris.Count -gt 1 ) {
-            $Issuer = ($app.IdentifierUris | where { $_ -imatch $tenantName })
+            $Issuer = ($app.IdentifierUris | where { $_ -imatch $hostName })
+            if ( $null -eq $Issuer) { $Issuer = ($app.IdentifierUris | where { $_ -imatch $tenantName })}
         } else {
             $Issuer = $app.IdentifierUris[0]
         }
-        $url = "https://samltestapp4.azurewebsites.net/SP?Tenant={0}&Policy={1}&Issuer={2}" -f $tenantName, $PolicyId, $Issuer
-        # start with Firefox if installed as it has a good extension 'SAML tracer'
-        <# -- change this so that yu start the default browser or the browser passed as arg
-        if ( Test-Path "$env:ProgramFiles\Mozilla Firefox" ) {
-            $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-            $params = "-private -new-window"
-        }
-        #>
+        $url = "https://samltestapp4.azurewebsites.net/SP?Tenant={0}&Policy={1}&Issuer={2}&HostName={3}" -f $tenantName, $PolicyId, $Issuer, $hostName
     } else {
         $scope = "openid"
         # if extra scopes passed on cmdline, then we will also ask for an access_token
@@ -1798,7 +1795,7 @@ if ( $ext.TrustFrameworkPolicy.ClaimsProviders.InnerXml -imatch $tpId ) {
   if ( "Facebook-OAUTH" -eq $tpId) {
     write-output "Updating TechnicalProfileId $tpId"
     $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "facebook_clientid", $client_id) 
-    $ext.Save("$PolicyPath/TrustFrameworkExtensions.xml")        
+    $ext.Save("$PolicyPath/$ExtPolicyFileName")        
     return
   }
   write-warning "TechnicalProfileId $tpId already exists in policy"
@@ -1843,7 +1840,7 @@ if ( $true -eq $copyFromBase ) {
 }
 $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "xmlns=`"`"", "") 
 
-$ext.Save("$PolicyPath/TrustFrameworkExtensions.xml")
+$ext.Save("$PolicyPath/$ExtPolicyFileName")
 
 }
 
@@ -2890,19 +2887,122 @@ Function Get-AzureADB2CCustomDomain
     $url = "https://graph.microsoft.com/beta/domains"
     $resp = Invoke-RestMethod -Method GET -Uri $url -ContentType "application/json" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} 
 
-    $B2CCustomDomain = ""
+    $B2CCustomDomains = @()
     foreach( $domain in $resp.value.id) { 
         if ( !$domain.EndsWith(".onmicrosoft.com") ) {
-            $nsresp = (nslookup -type=CNAME $domain)
-            if ( $True -eq ($null -ne ($nsresp | ? { ".azurefd.net" -match $_ })) ) {
-                $B2CCustomDomain = $domain
+            $B2CCustomDomains += $domain
+            $nsresp = ((nslookup -type=CNAME $domain) -join " ") 2>$null
+            if ( $nsresp.Contains(".azurefd.net") ) {
+                if ( $SetGlobalVariable ) {
+                    $global:B2CCustomDomain = $domain
+                }          
             }
         }
     }
-    if ( "" -ne $B2CCustomDomain ) {
-        write-host "$tenantName --> $B2CCustomDomain"
-        if ( $SetGlobalVariable ) {
-            $global:B2CCustomDomain = $B2CCustomDomain
-        }          
-    }
+    return $B2CCustomDomains
 }
+
+<#
+.SYNOPSIS
+    Adds a ClaimsProvider
+
+.DESCRIPTION
+    Adds a ClaimsProvider configuration to the TrustFrameworkExtensions.xml file
+
+.PARAMETER PolicyPath
+    Path to policy files. Default is current directory
+
+.PARAMETER RelyingPartyFileName
+    Name of relying party file. Default is SignUpOrSignin.xml
+
+.PARAMETER BasePolicyFileName
+    Name of base configuration file. Default is TrustFrameworkBase.xml
+
+.PARAMETER ExtPolicyFileName
+    Name of extension configuration file. Default is TrustFrameworkExtensions.xml
+
+.EXAMPLE
+    Add-AzureADB2CSAML2Protocol 
+
+.EXAMPLE
+    Add-AzureADB2CSAML2Protocol -RelyingPartyFileName "PasswordReset.xml"
+#>
+function Add-AzureADB2CSAML2Protocol (
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
+    [Parameter(Mandatory=$false)][Alias('r')][string]$RelyingPartyFileName = "SignUpOrSignin.xml",
+    [Parameter(Mandatory=$false)][Alias('b')][string]$BasePolicyFileName = "TrustFrameworkBase.xml",
+    [Parameter(Mandatory=$false)][Alias('e')][string]$ExtPolicyFileName = "TrustFrameworkExtensions.xml"
+)
+{
+
+if ( "" -eq $PolicyPath ) {
+    $PolicyPath = (get-location).Path
+}
+    
+[xml]$rp =Get-Content -Path "$PolicyPath/$RelyingPartyFileName" -Raw
+[xml]$base =Get-Content -Path "$PolicyPath/$BasePolicyFileName" -Raw
+[xml]$ext =Get-Content -Path "$PolicyPath/$ExtPolicyFileName" -Raw
+
+$samleTpId="Saml2AssertionIssuer"
+$samlClaimsProviderXml=@"
+<ClaimsProvider>
+  <DisplayName>Token Issuer</DisplayName>
+  <TechnicalProfiles>
+    <!-- SAML Token Issuer technical profile -->
+    <TechnicalProfile Id="$($samleTpId)">
+      <DisplayName>Token Issuer</DisplayName>
+      <Protocol Name="None"/>
+      <OutputTokenFormat>SAML2</OutputTokenFormat>
+      <Metadata>
+        <!-- The issuer contains the policy name; it should be the same name as configured in the relying party application. B2C_1A_signup_signin_SAML is used below. -->
+        <Item Key="IssuerUri">https://$($global:TenantName.Split(".")[0]).b2clogin.com/$($global:TenantName).onmicrosoft.com/$($rp.TrustFrameworkPolicy.PolicyId)</Item>
+      </Metadata>
+      <CryptographicKeys>
+        <Key Id="MetadataSigning" StorageReferenceId="B2C_1A_SamlIdpCert"/>
+        <Key Id="SamlAssertionSigning" StorageReferenceId="B2C_1A_SamlIdpCert"/>
+        <Key Id="SamlMessageSigning" StorageReferenceId="B2C_1A_SamlIdpCert"/>
+      </CryptographicKeys>
+      <InputClaims/>
+      <OutputClaims/>
+      <UseTechnicalProfileForSessionManagement ReferenceId="SM-Saml-sp"/>
+    </TechnicalProfile>
+    <!-- Session management technical profile for SAML based tokens -->
+    <TechnicalProfile Id="SM-Saml-sp">
+      <DisplayName>Session Management Provider</DisplayName>
+      <Protocol Name="Proprietary" Handler="Web.TPEngine.SSO.SamlSSOSessionProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null"/>
+    </TechnicalProfile>
+
+  </TechnicalProfiles>
+</ClaimsProvider>
+"@
+
+$rpXml=@"
+  <UserJourneys>
+    <UserJourney Id="SignUpOrSignIn">
+      <AssuranceLevel>LOA1</AssuranceLevel>
+      <OrchestrationSteps>
+        <!-- override Base step 7 and emit a SAML token instead of JWT -->
+        <OrchestrationStep Order="7" Type="SendClaims" CpimIssuerTechnicalProfileReferenceId="$($samleTpId)" />
+      </OrchestrationSteps>
+    </UserJourney>
+  </UserJourneys>
+"@
+
+if ( $ext.TrustFrameworkPolicy.ClaimsProviders.InnerXml -imatch "SAML2" ) {
+  write-warning "SAML2 Token Issuer seems to already exists"
+  return
+}
+
+write-output "Adding TechnicalProfileId $samleTpId"
+
+$ext.TrustFrameworkPolicy.ClaimsProviders.innerXml = $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml + $samlClaimsProviderXml
+
+$rp.TrustFrameworkPolicy.RelyingParty.TechnicalProfile.Protocol.Name = "SAML2"
+$rp.TrustFrameworkPolicy.innerXml = $rp.TrustFrameworkPolicy.innerXml.Replace("</BasePolicy>", "</BasePolicy>" + $rpXml )
+
+$ext.Save("$PolicyPath/$ExtPolicyFileName")
+
+$rp.Save("$PolicyPath/$RelyingPartyFileName")
+
+}
+
