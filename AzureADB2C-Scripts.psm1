@@ -905,9 +905,9 @@ function Test-AzureADB2CPolicy
             $isSAML = $true
         }
     }
-        
+
     $hostName = "{0}.b2clogin.com" -f $tenantName.Split(".")[0]    
-    if ( "" -ne $global:B2CCustomDomain ) {
+    if ( $global:B2CCustomDomain.Length -gt 0) {
         $hostName = $global:B2CCustomDomain
         write-host "Using B2C Custom Domain" $global:B2CCustomDomain        
     }
