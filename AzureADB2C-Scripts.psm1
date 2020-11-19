@@ -1276,6 +1276,7 @@ function Connect-AzureADB2CEnv
     } else {                                                        # Windows
         $ctx = Connect-AzureAD -tenantid $TenantID
         $Tenant = $ctx.TenantDomain
+        $TenantId = $ctx.TenantId.Guid
         $user = $ctx.Account.Id
         $type = ""
     }
@@ -1333,7 +1334,6 @@ function Connect-AzureADB2CEnv
 #>
 function Read-AzureADB2CConfig
 (
-    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('n')][string]$PolicyPrefix = "",  
     [Parameter(Mandatory=$false)][Alias('k')][boolean]$KeepPolicyIds = $False,  
@@ -1348,6 +1348,9 @@ function Read-AzureADB2CConfig
     }
     $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
     if ( $isMacOS ) { $AzureCLI = $True}
+
+    $tenantName = $global:tenantName
+    $tenantID = $global:tenantID
 
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
@@ -1375,36 +1378,10 @@ function Read-AzureADB2CConfig
         $global:storageConnectString="DefaultEndpointsProtocol=https;AccountName=$uxStorageAccount;AccountKey=$uxStorageAccountKey;EndpointSuffix=$EndpointSuffix"    
     }
     
-    if ( "" -eq $TenantName ) {
+    if ( "" -eq $b2cAppSettings.TenantName ) {
         $TenantName = $b2cAppSettings.TenantName
     }
     
-    if ( $True -eq $AzureCli ) {
-        try {
-            $tenant = (az account show | ConvertFrom-json)
-        } catch {
-            write-warning "Not logged in to a B2C tenant.`n Please run az cli -t {tenantId} or `n$PSScriptRoot\aadb2c-login.ps1 -t `"yourtenant`"`n`n"
-            return
-        }
-        if ( !($TenantName -imatch ".onmicrosoft.com") ) {
-            $TenantName = $TenantName + ".onmicrosoft.com"
-        }
-        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
-        $tenantID = $resp.authorization_endpoint.Split("/")[3]
-    } else {
-        try {
-            $tenant = Get-AzureADTenantDetail
-        } catch {
-            write-warning "Not logged in to a B2C tenant.`n Please run Connect-AzureADB2C -t `"yourtenant`"`n`n"
-            return
-        }
-        if ( $tenantName -ne $tenant.VerifiedDomains[0].Name) {
-            write-error "Logged in to the wrong B2C tenant.`nTarget:`t$TenantName`nLogged in to:`t$($tenant.VerifiedDomains[0].Name)`n`n"
-            return
-        }
-        $tenantName = $tenant.VerifiedDomains[0].Name
-        $tenantID = $tenant.ObjectId
-    }
     $global:tenantName = $tenantName
     $global:tenantID = $tenantID
     
@@ -1905,15 +1882,8 @@ function New-AzureADB2CIdentityExperienceFrameworkApps
     $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux
     if ( $isMacOS ) { $AzureCLI = $True}
 
-    if ( $False -eq $AzureCli ) {
-        write-host "Getting Tenant info..."
-        $tenant = Get-AzureADTenantDetail
-        $tenantName = $tenant.VerifiedDomains[0].Name
-        $tenantID = $tenant.ObjectId
-    } else {
-        $tenantName = $global:tenantName
-        $tenantID = $global:tenantID
-    }
+    $tenantName = $global:tenantName
+    $tenantID = $global:tenantID
     write-host "$tenantName`n$tenantId"
 
     $AzureAdGraphApiAppID = "00000002-0000-0000-c000-000000000000"  # https://graph.windows.net
@@ -2126,7 +2096,6 @@ function New-AzureADB2CPolicyKey
 #>
 function Set-AzureADB2CGrantPermissions
 (
-    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppID = "",
     [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
     [Parameter(Mandatory=$true)][Alias('n')][string]$AppDisplayName = ""
@@ -2136,23 +2105,8 @@ function Set-AzureADB2CGrantPermissions
     if ( "" -eq $AppID ) { $AppID = $env:B2CAppId }
     if ( "" -eq $AppKey ) { $AppKey = $env:B2CAppKey }
 
-    $tenantID = ""
-    if ( "" -eq $TenantName ) {
-        write-host "Getting Tenant info..."
-        $tenant = Get-AzureADTenantDetail
-        if ( $null -eq $tenant ) {
-            write-error "Not logged in to a B2C tenant"
-            return
-        }
-        $tenantName = $tenant.VerifiedDomains[0].Name
-        $tenantID = $tenant.ObjectId
-    } else {
-        if ( !($TenantName -imatch ".onmicrosoft.com") ) {
-            $TenantName = $TenantName + ".onmicrosoft.com"
-        }
-        $resp = Invoke-RestMethod -Uri "https://login.windows.net/$TenantName/v2.0/.well-known/openid-configuration"
-        $tenantID = $resp.authorization_endpoint.Split("/")[3]    
-    }
+    $tenantName = $global:TenantName
+    $tenantID = $global:TenantID
     if ( "" -eq $tenantID ) {
         write-error "Unknown Tenant"
         return
@@ -2681,13 +2635,8 @@ Function New-AzureADB2CLocalAdmin
     [Parameter(Mandatory=$false)][Alias('r')][string[]]$RoleNames = @("Directory Readers", "Directory Writers") # @("Company Administrator") for Global Admin
 )
 {
-    $tenant = Get-AzureADTenantDetail
-    if ( $null -eq $tenant ) {
-        write-error "Not logged in to a B2C tenant"
-        return
-    }
-    $tenantName = $tenant.VerifiedDomains[0].Name
-    $tenantID = $tenant.ObjectId
+    $tenantName = $global:tenantName
+    $tenantID = $global:tenantId
 
     $PasswordProfile = New-Object -TypeName Microsoft.Open.AzureAD.Model.PasswordProfile
     if ( "" -eq $Password ) {
