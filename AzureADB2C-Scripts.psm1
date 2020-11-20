@@ -15,7 +15,7 @@
     Filename if only downloading a single file. 
 
 .EXAMPLE
-    Get-AzureADB2CStarterPack -PolicyType "SocialAndLocalWithMfa"
+    Get-AzureADB2CStarterPack -PolicyType "SocialAndLocalAccountsWithMfa"
 #>
 function Get-AzureADB2CStarterPack(
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
