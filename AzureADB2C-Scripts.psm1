@@ -2969,3 +2969,137 @@ $rp.Save("$PolicyPath/$RelyingPartyFileName")
 
 }
 
+<#
+.SYNOPSIS
+    Gets id, access and refresh tokens from a B2C tenant using Device Login flow
+
+.DESCRIPTION
+    If you need an access token to make Graph API calls to your B2C tenant, you can use this command to retrieve it
+
+.PARAMETER ClientID
+    Default is well-known client_id for Powershell.
+
+.PARAMETER TenantID
+    Specify the tenant name (yourtenant.onmicrosoft.com) or the id (guid) for the tenant
+
+.PARAMETER Resource
+    The default resource is https://graph.microsoft.com
+
+.PARAMETER Scope
+    Additional scopes you want for the access token
+
+.PARAMETER Browser
+    Which browser to launch: Chrome, Edge or Firefox. Default is your default browser
+
+.PARAMETER Incognito
+    If to launch the browser in an incognito/inprivate window
+
+.EXAMPLE
+    $tokens = Connect-AzureADB2CDevicelogin -TenantId $global:TenantId -Scope "User.Read.All" 
+
+.EXAMPLE
+    $tokens = Connect-AzureADB2CDevicelogin -TenantId $global:TenantId -Scope "Directory.ReadWrite.All" 
+#>
+function Connect-AzureADB2CDevicelogin {
+    [cmdletbinding()]
+    param( 
+        [Parameter()][Alias('c')]$ClientID = '1950a258-227b-4e31-a9cf-717495945fc2',        
+        [Parameter()][Alias('t')]$TenantID = 'common',        
+        [Parameter()][Alias('r')]$Resource = "https://graph.microsoft.com/",        
+        [Parameter()][Alias('s')]$Scope = "",        
+        # Timeout in seconds to wait for user to complete sign in process
+        [Parameter(DontShow)]$Timeout = 300,
+        [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "", # Chrome, Edge or Firefox
+        [Parameter(Mandatory=$false)][switch]$Incognito = $False
+    )
+
+    Function IIf($If, $Right, $Wrong) {If ($If) {$Right} Else {$Wrong}}
+    
+    if ( !($Scope -imatch "offline_access") ) { $Scope += " offline_access"} # make sure we get a refresh token
+    $retVal = $null
+    $url = "https://microsoft.com/devicelogin"
+    $isMacOS = ($env:PATH -imatch "/usr/bin" )
+    $pgm = "chrome.exe"
+    $params = "--incognito --new-window"    
+    if ( !$IsMacOS ) {
+        if ( $browser -eq "") {
+            $browser = (Get-ItemProperty HKCU:\Software\Microsoft\windows\Shell\Associations\UrlAssociations\http\UserChoice).ProgId
+        }
+        $browser = $browser.Replace("HTML", "").Replace("URL", "")
+        switch( $browser.ToLower() ) {        
+            "firefox" { 
+                $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
+                $params = (IIf $Incognito "-private " "") + "-new-window"
+            } 
+            "chrome" { 
+                $pgm = "chrome.exe"
+                $params = (IIf $Incognito "-incognito " "") + "-new-window"
+            } 
+            default { 
+                $pgm = "msedge.exe"
+                $params = (IIf $Incognito "-InPrivate " "") + "-new-window"
+            } 
+        }  
+    }
+
+    try {
+        $DeviceCodeRequestParams = @{
+            Method = 'POST'
+            Uri    = "https://login.microsoftonline.com/$TenantID/oauth2/devicecode"
+            Body   = @{
+                resource  = $Resource
+                client_id = $ClientId
+                scope = $Scope
+            }
+        }
+        $DeviceCodeRequest = Invoke-RestMethod @DeviceCodeRequestParams
+        #write-host $DeviceCodeRequest
+        Write-Host $DeviceCodeRequest.message -ForegroundColor Yellow
+        $url = $DeviceCodeRequest.verification_url
+
+        Set-Clipboard -Value $DeviceCodeRequest.user_code
+
+        if ( $isMacOS ) {
+            $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
+        } else {
+            $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
+        }
+
+        $TokenRequestParams = @{
+            Method = 'POST'
+            Uri    = "https://login.microsoftonline.com/$TenantId/oauth2/token"
+            Body   = @{
+                grant_type = "urn:ietf:params:oauth:grant-type:device_code"
+                code       = $DeviceCodeRequest.device_code
+                client_id  = $ClientId
+            }
+        }
+        $TimeoutTimer = [System.Diagnostics.Stopwatch]::StartNew()
+        while ([string]::IsNullOrEmpty($TokenRequest.access_token)) {
+            if ($TimeoutTimer.Elapsed.TotalSeconds -gt $Timeout) {
+                throw 'Login timed out, please try again.'
+            }
+            $TokenRequest = try {
+                Invoke-RestMethod @TokenRequestParams -ErrorAction Stop
+            }
+            catch {
+                $Message = $_.ErrorDetails.Message | ConvertFrom-Json
+                if ($Message.error -ne "authorization_pending") {
+                    throw
+                }
+            }
+            Start-Sleep -Seconds 1
+        }
+        $retVal = $TokenRequest
+        #Write-Output $TokenRequest.access_token
+    }
+    finally {
+        try {
+            $TimeoutTimer.Stop()
+        }
+        catch {
+            # We don't care about errors here
+        }
+    }
+    return $retVal
+}
