@@ -80,12 +80,15 @@ function New-AzureADB2CPolicyProject
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('b')][string]$PolicyType = "SocialAndLocalAccounts",
     [Parameter(Mandatory=$false)][Alias('x')][string]$PolicyPrefix = "",
+    [Parameter(Mandatory=$false)][switch]$NoCustomAttributes = $False,
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
     Get-AzureADB2CStarterPack -PolicyPath $PolicyPath -PolicyType $PolicyType
     Set-AzureADB2CPolicyDetails -TenantName $TenantName -PolicyPath $PolicyPath -PolicyPrefix $PolicyPrefix
-    Set-AzureADB2CCustomAttributeApp -PolicyPath $PolicyPath
+    if ( $False -eq $NoCustomAttributes) {
+        Set-AzureADB2CCustomAttributeApp -PolicyPath $PolicyPath
+    }
     Set-AzureADB2CAppInsights -PolicyPath $PolicyPath
     Set-AzureADB2CCustomizeUX -PolicyPath $PolicyPath
 }
@@ -764,7 +767,8 @@ function Set-AzureADB2CCustomizeUX
     [Parameter(Mandatory=$false)][Alias('e')][string]$ExtPolicyFileName = "TrustFrameworkExtensions.xml",
     [Parameter(Mandatory=$false)][Alias('d')][switch]$DownloadHtmlTemplates = $false,    
     [Parameter(Mandatory=$false)][Alias('h')][string]$HtmlFolderName = "html",    
-    [Parameter(Mandatory=$false)][Alias('u')][string]$urlBaseUx = ""
+    [Parameter(Mandatory=$false)][Alias('u')][string]$urlBaseUx = "",
+    [Parameter(Mandatory=$false)][switch]$FullContentDefinition = $False
     )
 {
     
@@ -807,6 +811,15 @@ function Set-AzureADB2CCustomizeUX
             "urn:com:microsoft:aad:b2c:elements:selfasserted:1.0.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:selfasserted:2.1.0" } 
             "urn:com:microsoft:aad:b2c:elements:selfasserted:1.1.0"    { $contDef.DataUri = "urn:com:microsoft:aad:b2c:elements:contract:selfasserted:2.1.0" }
         }  
+
+        if ( $False -eq $FullContentDefinition ) {
+            $i1 = $contDef.InnerXml.IndexOf("<RecoveryUri" )
+            $i2 = $contDef.InnerXml.IndexOf("</RecoveryUri>" )
+            if ( $i2 -gt $i1 ) {
+                $contDef.InnerXml = $contDef.InnerXml.SubString(0,$i1) + $contDef.InnerXml.SubString($i2+14) 
+            }
+            $contDef.RemoveChild( $contDef.Metadata ) | Out-null
+        }
         if ( $true -eq $DownloadHtmlTemplates) {
             $url = "https://$tenantShortName.b2clogin.com/static" + $contDef.LoadUri.Replace("~", "")
             DownloadFile $url "$PolicyPath\$HtmlFolderName"
@@ -879,6 +892,7 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$false)][Alias('s')][string]$scopes = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$response_type = "id_token",
     [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "", # Chrome, Edge or Firefox
+    [Parameter(Mandatory=$false)][Alias('q')][string]$QueryString = "", # extra querystring params
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -906,6 +920,9 @@ function Test-AzureADB2CPolicy
         }
     }
 
+    if ( $QueryString.length -gt 0 -and $QueryString.StartsWith("&") -eq $False ) {
+        $QueryString = "&$QueryString"
+    }
     $hostName = "{0}.b2clogin.com" -f $tenantName.Split(".")[0]    
     if ( $global:B2CCustomDomain.Length -gt 0) {
         $hostName = $global:B2CCustomDomain
@@ -975,7 +992,7 @@ function Test-AzureADB2CPolicy
         $qparams = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}&prompt=login&disable_cache=true" `
                     -f $app.AppId.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type
         # Q&D urlencode
-        $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20")
+        $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20") + $QueryString
     
         $url = "https://{0}/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $hostName, $tenantName, $PolicyId, $qparams
     }
@@ -1842,17 +1859,17 @@ $ext.Save("$PolicyPath/$ExtPolicyFileName")
 #>
 Function Enable-AzureADB2CIdentityExperienceFramework
 (
-    [Parameter(Mandatory=$true)][Alias('n')][string]$TestAppDisplayName = "Test-WebApp",
-    [Parameter(Mandatory=$true)][Alias('f')][string]$FacebookSecret = "abc123"              # dummy fb secret
+    [Parameter(Mandatory=$false)][Alias('n')][string]$TestAppDisplayName = "Test-WebApp",
+    [Parameter(Mandatory=$false)][Alias('f')][string]$FacebookSecret = "abc123"              # dummy fb secret
 )
 {
     New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
     New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
     New-AzureADB2CIdentityExperienceFrameworkApps
-    if ( "" -ne $FacebookSecret ) {
+    if ( $FacebookSecret.Length -gt 0 ) {
         New-AzureADB2CPolicyKey -KeyContainerName "B2C_1A_FacebookSecret" -KeyType "secret" -KeyUse "sig" -Secret $FacebookSecret
     }
-    if ( "" -ne $TestAppDisplayName ) {
+    if ( $TestAppDisplayName.Length -gt 0 ) {
         New-AzureADB2CTestApp -n $TestAppDisplayName
     }
 }
