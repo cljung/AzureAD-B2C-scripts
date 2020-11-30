@@ -3120,3 +3120,144 @@ function Connect-AzureADB2CDevicelogin {
     }
     return $retVal
 }
+<#
+.SYNOPSIS
+    Adds KMSI (Keep me signed in) to the signin page
+
+.DESCRIPTION
+    Adds KMSI (Keep me signed in) to the signin page
+
+.PARAMETER PolicyPath
+    Path to policy files. Default is current directory
+
+.PARAMETER TechnicalProfileId
+    Id of the Technical Profile to add KMSI too. The default is "SelfAsserted-LocalAccountSignin-Email"
+
+.PARAMETER ExtPolicyFileName
+    Name of extension configuration file. Default is TrustFrameworkExtensions.xml
+
+.EXAMPLE
+    Set-AzureADB2CKmsi
+
+.EXAMPLE
+    Set-AzureADB2CKmsi -TechnicalProfileId "SelfAsserted-LocalAccountSignin-Email"
+#>
+function Set-AzureADB2CKmsi (
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
+    [Parameter(Mandatory=$false)][Alias('i')][string]$TechnicalProfileId = "SelfAsserted-LocalAccountSignin-Email",
+    [Parameter(Mandatory=$false)][Alias('e')][string]$ExtPolicyFileName = "TrustFrameworkExtensions.xml"
+)
+{
+
+if ( "" -eq $PolicyPath ) {
+    $PolicyPath = (get-location).Path
+}
+
+[xml]$ext =Get-Content -Path "$PolicyPath\$ExtPolicyFileName" -Raw
+
+$newxml = @"
+<ClaimsProvider>
+  <DisplayName>Local Account</DisplayName>
+  <TechnicalProfiles>
+    <TechnicalProfile Id="$TechnicalProfileId">
+      <Metadata>
+        <Item Key="setting.enableRememberMe">True</Item>
+        <!-- <Item Key="setting.operatingMode">username</Item>--> <!-- this enables signin with username -->
+      </Metadata>
+    </TechnicalProfile>
+  </TechnicalProfiles>
+</ClaimsProvider>
+"@
+
+$cpExists = $false
+foreach( $cp in $ext.TrustFrameworkPolicy.ClaimsProviders.ClaimsProvider ) {
+    if ( "Local Account" -eq $cp.DisplayName ) {
+        $cpExists = $true
+        $cp.InnerXML = $cp.InnerXML.Replace( "</ClaimsProviders>", $newxml + "</ClaimsProviders>")
+    }
+}
+
+if ( !$cpExists ) {
+    $ext.TrustFrameworkPolicy.InnerXML = $ext.TrustFrameworkPolicy.InnerXML.Replace( "</ClaimsProviders>", $newxml + "</ClaimsProviders>")
+}
+$ext.Save("$PolicyPath/$ExtPolicyFileName")
+}
+
+<#
+.SYNOPSIS
+    Adds a ClaimsProvider
+
+.DESCRIPTION
+    Adds a ClaimsProvider configuration to the TrustFrameworkExtensions.xml file
+
+.PARAMETER PolicyPath
+    Path to policy files. Default is current directory
+
+.PARAMETER ContentDefinitionId
+    Id of the ContentDefinition. The default is "api.signuporsignin"
+
+.PARAMETER Language
+    Language code. Default is "en"
+
+.PARAMETER ExtPolicyFileName
+    Name of extension configuration file. Default is TrustFrameworkExtensions.xml
+
+.EXAMPLE
+    Set-AzureADB2CLocalization
+
+.EXAMPLE
+    Set-AzureADB2CLocalization -ContentDefinitionId = "api.signuporsignin" -Language "en"
+#>
+function Set-AzureADB2CLocalization (
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
+    [Parameter(Mandatory=$false)][Alias('i')][string]$ContentDefinitionId = "api.signuporsignin",
+    [Parameter(Mandatory=$false)][Alias('l')][string]$Language = "en",
+    [Parameter(Mandatory=$false)][Alias('e')][string]$ExtPolicyFileName = "TrustFrameworkExtensions.xml"
+)
+{
+
+if ( "" -eq $PolicyPath ) {
+    $PolicyPath = (get-location).Path
+}
+
+[xml]$ext =Get-Content -Path "$PolicyPath\$ExtPolicyFileName" -Raw
+
+$newxml = @"
+<LocalizedResourcesReferences MergeBehavior="Prepend"><LocalizedResourcesReference Language="en" LocalizedResourcesReferenceId="api.signuporsignin.en" /></LocalizedResourcesReferences>
+"@
+
+$LocalizedResourcesReferenceId = "$ContentDefinitionId.$Language"
+
+foreach( $cdef in $ext.TrustFrameworkPolicy.BuildingBlocks.ContentDefinitions.ContentDefinition ) {
+    if ( $ContentDefinitionId -eq $cdef.Id ) {
+$newxml = @"
+<LocalizedResourcesReferences MergeBehavior="Prepend">
+<LocalizedResourcesReference Language="$lang" LocalizedResourcesReferenceId="$LocalizedResourcesReferenceId" />
+</LocalizedResourcesReferences>
+"@
+        $cdef.InnerXML = $cdef.InnerXML.Replace("</DataUri>", "</DataUri>" + $newxml)
+    }
+}
+
+$xmlLoc = @"
+    <Localization Enabled="true">
+      <SupportedLanguages DefaultLanguage="$lang" MergeBehavior="ReplaceAll">
+        <SupportedLanguage>$lang</SupportedLanguage>
+      </SupportedLanguages>
+      <LocalizedResources Id="$LocalizedResourcesReferenceId">
+        <LocalizedStrings>
+          <LocalizedString ElementType="UxElement" StringId="forgotpassword_link">Need help signing in?</LocalizedString>
+          <LocalizedString ElementType="UxElement" StringId="remember_me">Remember me</LocalizedString>
+          <LocalizedString ElementType="UxElement" StringId="social_intro">Other ways to signin</LocalizedString>
+          <LocalizedString ElementType="UxElement" StringId="local_intro_generic">Sign in</LocalizedString>
+          <LocalizedString ElementType="UxElement" StringId="createaccount_intro">Don't have an account?</LocalizedString>
+          <LocalizedString ElementType="UxElement" StringId="createaccount_one_link">Sign up</LocalizedString>
+        </LocalizedStrings>
+      </LocalizedResources>
+    </Localization>    
+"@
+
+$ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "</BuildingBlocks>", $xmlLoc + "</BuildingBlocks>" )
+
+$ext.Save("$PolicyPath/$ExtPolicyFileName")
+}
