@@ -818,6 +818,11 @@ function Set-AzureADB2CCustomizeUX
             if ( $i2 -gt $i1 ) {
                 $contDef.InnerXml = $contDef.InnerXml.SubString(0,$i1) + $contDef.InnerXml.SubString($i2+14) 
             }
+            $i1 = $contDef.InnerXml.IndexOf("<LoadUri" )
+            $i2 = $contDef.InnerXml.IndexOf("</LoadUri>" )
+            if ( $i2 -gt $i1 ) {
+                $contDef.InnerXml = $contDef.InnerXml.SubString(0,$i1) + $contDef.InnerXml.SubString($i2+14) 
+            }
             $contDef.RemoveChild( $contDef.Metadata ) | Out-null
         }
         if ( $true -eq $DownloadHtmlTemplates) {
@@ -877,6 +882,12 @@ function Set-AzureADB2CCustomizeUX
 .PARAMETER Browser
     Browser to use. Values can be "Chrome", "Edge" or "Firefox". Default is to use default browser in OS
 
+.PARAMETER QueryString
+    Extra QueryString to add, for instance "&login_hint=alice@contoso.com"
+
+.PARAMETER Prompt
+    What prompt to use. Default is "login". Accepted values are none, login and not specified
+
 .EXAMPLE
     Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml"
 
@@ -893,6 +904,11 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$false)][Alias('t')][string]$response_type = "id_token",
     [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "", # Chrome, Edge or Firefox
     [Parameter(Mandatory=$false)][Alias('q')][string]$QueryString = "", # extra querystring params
+    [Parameter(Mandatory=$false)][string]$Prompt = "login", 
+    [Parameter(Mandatory=$false)][switch]$Chrome = $False,
+    [Parameter(Mandatory=$false)][switch]$Edge = $False,
+    [Parameter(Mandatory=$false)][switch]$Firefox = $False,
+    [Parameter(Mandatory=$false)][switch]$Incognito = $True,
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -951,6 +967,9 @@ function Test-AzureADB2CPolicy
     $pgm = "chrome.exe"
     $params = "--incognito --new-window"
     if ( !$IsMacOS ) {
+        if ( $Chrome ) { $Browser = "Chrome" }
+        if ( $Edge ) { $Browser = "Edge" }
+        if ( $Firefox ) { $Browser = "Firefox" }
         if ( $browser -eq "") {
             $browser = (Get-ItemProperty HKCU:\Software\Microsoft\windows\Shell\Associations\UrlAssociations\http\UserChoice).ProgId
         }
@@ -958,15 +977,15 @@ function Test-AzureADB2CPolicy
         switch( $browser.ToLower() ) {        
             "firefox" { 
                 $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-                $params = "-private -new-window"
+                $params = (&{If($Incognito) {"-private "} Else {""}}) + "-new-window"
             } 
             "chrome" { 
                 $pgm = "chrome.exe"
-                $params = "--incognito --new-window"
+                $params = (&{If($Incognito) {"--incognito "} Else {""}}) + "--new-window"
             } 
             default { 
                 $pgm = "msedge.exe"
-                $params = "-InPrivate -new-window"
+                $params = (&{If($Incognito) {"-InPrivate "} Else {""}}) + "-new-window"
             } 
         }  
     }
@@ -989,8 +1008,13 @@ function Test-AzureADB2CPolicy
             $scope = "openid offline_access $scopes"
             $response_type = "$response_type token"
         }
-        $qparams = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}&prompt=login&disable_cache=true" `
-                    -f $app.AppId.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type
+        if ( $Prompt.Length -gt 0 ) {
+            $Prompt = "&prompt=" + $Prompt
+        } else {
+            $Prompt = "" 
+        }
+        $qparams = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}{5}&disable_cache=true" `
+                    -f $app.AppId.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type, $Prompt
         # Q&D urlencode
         $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20") + $QueryString
     
@@ -1468,7 +1492,7 @@ function Get-AzureADB2CAccessToken([string]$tenantId) {
 #>
 function Set-AzureADB2CClaimsProvider (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
-    [Parameter(Mandatory=$true)][Alias('i')][string]$ProviderName = "",    # google, twitter, amazon, linkedid, AzureAD
+    [Parameter(Mandatory=$true)][Alias('i')][string]$ProviderName = "",    # google, twitter, amazon, linkedid, AzureAD, restapi
     [Parameter(Mandatory=$false)][Alias('c')][string]$client_id = "",    # client_id/AppId o the IdpName
     [Parameter(Mandatory=$false)][Alias('a')][string]$AadTenantName = "",    # contoso.com or contoso
     [Parameter(Mandatory=$false)][Alias('b')][string]$BasePolicyFileName = "TrustFrameworkBase.xml",
@@ -1758,6 +1782,34 @@ $aadSingleTenantCP = @"
 </ClaimsProvider>
 "@
 
+$restapiCP = @"
+    <ClaimsProvider>
+      <DisplayName>REST API</DisplayName>
+      <TechnicalProfiles>
+        <TechnicalProfile Id="{tpId}">
+          <DisplayName>Describe the purpose of your REST API here</DisplayName>
+          <Protocol Name="Proprietary" Handler="Web.TPEngine.Providers.RestfulProvider, Web.TPEngine, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null" />
+          <Metadata>
+            <Item Key="ServiceUrl">https://yourname.azurewebsites.net/api/yourfuncname?code=...</Item>
+            <Item Key="AuthenticationType">None</Item>
+            <Item Key="SendClaimsIn">Body</Item>
+            <Item Key="AllowInsecureAuthInProduction">true</Item>
+          </Metadata>
+          <InputClaims>
+            <!-- modify this to pass whatever claims you need -->
+            <InputClaim ClaimTypeReferenceId="signInName" PartnerClaimType="username" />
+            <InputClaim ClaimTypeReferenceId="objectId"  />
+          </InputClaims>
+          <OutputClaims>
+            <!-- modify this to capture any return claims from the function-->
+            <OutputClaim ClaimTypeReferenceId="groups" />
+          </OutputClaims>
+          <UseTechnicalProfileForSessionManagement ReferenceId="SM-Noop" />
+        </TechnicalProfile>
+      </TechnicalProfiles>
+    </ClaimsProvider>
+"@
+
 $tpId = ""
 $claimsExchangeId=""
 $claimsProviderXml=""
@@ -1769,6 +1821,7 @@ switch ( $ProviderName.ToLower() ) {
   "amazon" { $tpId = "Amazon-OAUTH"; $claimsExchangeId="AmazonExchange"; $claimsProviderXml = $amazonCP }
   "msa" { $tpId = "MSA-OIDC"; $claimsExchangeId="MicrosoftAccountExchange"; $claimsProviderXml = $msaCP }
   "facebook" { $tpId = "Facebook-OAUTH"; $claimsExchangeId="FacebookExchange"; $claimsProviderXml = $msaCP }
+  "restapi" { $tpId = "REST-API-Yourname"; $claimsExchangeId=""; $claimsProviderXml = $restapiCP }
   "azuread" {
       if ( $AadTenantName -imatch ".com" ) {
         $AadTenantDisplayName = $AadTenantName.Split(".")[0]
@@ -1782,7 +1835,7 @@ switch ( $ProviderName.ToLower() ) {
       $claimsExchangeId= $AadTenantDisplayName + "Exchange"
       $claimsProviderXml = $aadSingleTenantCP
   }
-  default { write-error "IdP name must be either or google, twitter, linkedin, amazon, facebook, azuread or msa"; return }
+  default { write-error "IdP name must be either or google, twitter, linkedin, amazon, facebook, azuread, msa or restapi"; return }
 }
 
 if ( $ext.TrustFrameworkPolicy.ClaimsProviders.InnerXml -imatch $tpId ) {
@@ -1799,8 +1852,8 @@ if ( $ext.TrustFrameworkPolicy.ClaimsProviders.InnerXml -imatch $tpId ) {
 write-output "Adding TechnicalProfileId $tpId"
 
 $claimsProviderXml = $claimsProviderXml.Replace("{client_id}", $client_id)
+$claimsProviderXml = $claimsProviderXml.Replace("{tpId}", $tpId)
 if ( "azuread" -eq $ProviderName.ToLower() ) {
-  $claimsProviderXml = $claimsProviderXml.Replace("{tpId}", $tpId)
   $claimsProviderXml = $claimsProviderXml.Replace("{AadTenantName}", $AadTenantName)
   $claimsProviderXml = $claimsProviderXml.Replace("{AadTenantDisplayName}", $AadTenantDisplayName)
   $claimsProviderXml = $claimsProviderXml.Replace("{AadTenantFQDN}", $AadTenantFQDN)
@@ -1821,17 +1874,20 @@ if ( $null -eq $ext.TrustFrameworkPolicy.UserJourneys ) {
 
 $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml = $ext.TrustFrameworkPolicy.ClaimsProviders.innerXml + $claimsProviderXml
 
-$claimsProviderSelection = "<ClaimsProviderSelection TargetClaimsExchangeId=`"$claimsExchangeId`"/>"
-$userJourney.OrchestrationSteps.OrchestrationStep[0].ClaimsProviderSelections.InnerXml = $userJourney.OrchestrationSteps.OrchestrationStep[0].ClaimsProviderSelections.InnerXml + $claimsProviderSelection
+if ( $claimsExchangeId.length -gt 0 ) {
+    $claimsProviderSelection = "<ClaimsProviderSelection TargetClaimsExchangeId=`"$claimsExchangeId`"/>"
+    $userJourney.OrchestrationSteps.OrchestrationStep[0].ClaimsProviderSelections.InnerXml = $userJourney.OrchestrationSteps.OrchestrationStep[0].ClaimsProviderSelections.InnerXml + $claimsProviderSelection
 
-$claimsExchangeTP = "<ClaimsExchange Id=`"$claimsExchangeId`" TechnicalProfileReferenceId=`"$tpId`"/>"
-$userJourney.OrchestrationSteps.OrchestrationStep[1].ClaimsExchanges.InnerXml = $userJourney.OrchestrationSteps.OrchestrationStep[1].ClaimsExchanges.InnerXml + $claimsExchangeTP
+    $claimsExchangeTP = "<ClaimsExchange Id=`"$claimsExchangeId`" TechnicalProfileReferenceId=`"$tpId`"/>"
+    $userJourney.OrchestrationSteps.OrchestrationStep[1].ClaimsExchanges.InnerXml = $userJourney.OrchestrationSteps.OrchestrationStep[1].ClaimsExchanges.InnerXml + $claimsExchangeTP
 
-if ( $true -eq $copyFromBase ) {
-  try {
-    $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "<!--UserJourneys>", "<UserJourneys>" + $userJourney.OuterXml + "</UserJourneys>") 
-  } Catch {}
+    if ( $true -eq $copyFromBase ) {
+    try {
+        $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "<!--UserJourneys>", "<UserJourneys>" + $userJourney.OuterXml + "</UserJourneys>") 
+    } Catch {}
+    }
 }
+
 $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "xmlns=`"`"", "") 
 
 $ext.Save("$PolicyPath/$ExtPolicyFileName")
@@ -3185,10 +3241,10 @@ $ext.Save("$PolicyPath/$ExtPolicyFileName")
 
 <#
 .SYNOPSIS
-    Adds a ClaimsProvider
+    Add Localization to Signup/Signin page
 
 .DESCRIPTION
-    Adds a ClaimsProvider configuration to the TrustFrameworkExtensions.xml file
+    Add Localization to Signup/Signin page
 
 .PARAMETER PolicyPath
     Path to policy files. Default is current directory
