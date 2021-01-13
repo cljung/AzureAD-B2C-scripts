@@ -105,7 +105,7 @@ New-AzureADB2CPolicyProject -PolicyPrefix "demo" -PolicyType "SocialAndLocalAcco
 After you have run ***New-AzureADB2CPolicyProject***, you can directly push them to your tenant and test them
 
 ```powershell
-Push-AzureADB2CPolicyToTenant 
+Deploy-AzureADB2CPolicyToTenant 
 
 Test-AzureADB2CPolicy -n "ABC-WebApp"-p .\SignUpOrSignin.xml
 ```
@@ -118,8 +118,11 @@ See Get-Help <command> for details
 |-------------------|--------------------------------------------|
 | `Connect-AzureADB2CEnv` | Connects to an Azure AD B2C tenant and loads the config |
 | `Delete-AzureADB2CPolicyFromTenant` | Deletes B2C Custom Policies from a B2C tenant |
+| `Deploy-AzureADB2CHtmlContent` | Uploads files to Azure Blob Storage for use of custom html/css/javascript |
+| `Deploy-AzureADB2CPolicyToTenant` | Uploads B2C Custom Policies from local path to B2C tenant |                 
 | `Enable-AzureADB2CIdentityExperienceFramework` | Completes the configuration in the B2C tenant for Identity Experience Framework |
 | `Get-AzureADB2CAccessToken` | Lists AzureAD's token cache |                     
+| `Get-AzureADB2CCustomDomain` | Lists all available custom domain names for the current tenant. |                     
 | `Get-AzureADB2CExtensionAttributesForUser` | Get extension attributes for user |      
 | `Get-AzureADB2CPolicyId` | Gets a B2C Custom Policy from the tenant policy store by PolicyId |
 | `Get-AzureADB2CStarterPack` | Downloads the Azure AD B2C Custom Policy [Starter Pack](https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack) |                     
@@ -131,16 +134,17 @@ See Get-Help <command> for details
 | `New-AzureADB2CPolicyKey` | Registers a B2C IEF Policy Key |
 | `New-AzureADB2CPolicyProject` | Wrapper command that downloads the starter pack, auto-edit the details, prepares custom attributes, upgrades to lates html page versions and enables javascript and sets the AppInsight Instrumentation Key. |
 | `New-AzureADB2CTestApp` | Registeres a test webapp that can be used for testing B2C Custom Policies with. It redirects to jwt.ms |
-| `Push-AzureADB2CHtmlContent` | Uploads files to Azure Blob Storage for use of custom html/css/javascript |
-| `Push-AzureADB2CPolicyToTenant` | Uploads B2C Custom Policies from local path to B2C tenant |                 
 | `Read-AzureADB2CConfig` |                          Read-AzureADB2CConfig
 | `Remove-AzureADB2CExtensionAttribute` | Removes an extension attribute in the B2C tenant |
+| `Repair-AzureADB2CUserJourneyOrder` | Makes sure UserJourney Numbers are in sequence 1..n with no gaps ord duplicates |
 | `Set-AzureADB2CAppInsights` | Sets the AppInsign InstrumentationKey in all or one RelyingParty files in PolicyPath
 | `Set-AzureADB2CClaimsProvider` | Adds a ClaimsProvider configuration to the TrustFrameworkExtensions.xml file |
 | `Set-AzureADB2CCustomAttributeApp` | Sets the AppID and objectId for extension attributes in the B2C Custom Policies |
 | `Set-AzureADB2CCustomizeUX` | Prepares the policies for UX customizations via setting page version to latest and enabling javascript |                     
 | `Set-AzureADB2CExtensionAttributeForUser` | Updates an extension attributes for user |       
 | `Set-AzureADB2CGrantPermissions` | Grans Permission to a registered App |                
+| `Set-AzureADB2CKmsi` | Adds KMSI (Keep me signed in) to the signin page |                
+| `Set-AzureADB2CLocalization` | Add Localization to Signup/Signin page |                
 | `Set-AzureADB2CPolicyDetails ` | Updates the policy file details to make them ready for upload to a specific tenant. You can also use this command to clean away details before sharing your policies. |                  
 | `Start-AzureADB2CPortal` | Starts the Azure Portal in the right b2C tenant and with the B2C panel active |                        
 | `Test-AzureADB2CPolicy` | Creates a working url for testing and launches a browser to test a B2C Custom Policy |

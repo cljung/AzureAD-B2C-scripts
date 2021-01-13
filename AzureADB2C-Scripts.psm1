@@ -73,6 +73,9 @@ function Get-AzureADB2CStarterPack(
 
 .EXAMPLE
     New-AzureADB2CPolicyProject -PolicyPrefix "demo" -PolicyType "SocialAndLocalWithMfa"
+
+.EXAMPLE
+    New-AzureADB2CPolicyProject -PolicyPrefix "demo" -PolicyType "SocialAndLocalWithMfa" -NoCustomAttributes:$True
 #>
 function New-AzureADB2CPolicyProject
 (
@@ -501,12 +504,12 @@ function List-AzureADB2CPolicyIds
     secret for your client_credentials. Default is to use $env:B2CAppKey
 
 .EXAMPLE
-    Push-AzureADB2CPolicyToTenant
+    Deploy-AzureADB2CPolicyToTenant
 
 .EXAMPLE
-    Push-AzureADB2CPolicyToTenant -PolicyFile ".\SignUpOrSignin.xml"
+    Deploy-AzureADB2CPolicyToTenant -PolicyFile ".\SignUpOrSignin.xml"
 #>
-function Push-AzureADB2CPolicyToTenant
+function Deploy-AzureADB2CPolicyToTenant
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",
     [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "",
@@ -757,6 +760,9 @@ function Set-AzureADB2CCustomAttributeApp
     Set-AzureADB2CCustomizeUX
 
 .EXAMPLE
+    Set-AzureADB2CCustomizeUX -FullContentDefinition:$True
+
+.EXAMPLE
     Set-AzureADB2CCustomizeUX -DownloadHtmlTemplates 
 #>
 function Set-AzureADB2CCustomizeUX
@@ -879,8 +885,20 @@ function Set-AzureADB2CCustomizeUX
 .PARAMETER scopes
     Scopes for the request. Default is "openid"
 
-.PARAMETER Browser
-    Browser to use. Values can be "Chrome", "Edge" or "Firefox". Default is to use default browser in OS
+.PARAMETER Chrome
+    Use the Chrome browser. Default is your default browser
+
+.PARAMETER Edge
+    Use the Edge browser. Default is your default browser
+
+.PARAMETER Firefox
+    Use the Firefox browser. Default is your default browser
+
+.PARAMETER Incognito
+    Start the browser in incognito/inprivate mode (default). Specify -Incognito:$False to disable
+
+.PARAMETER NewWindow
+    Start the browser in a new window (default). Specify -NewWindow:$False to disable
 
 .PARAMETER QueryString
     Extra QueryString to add, for instance "&login_hint=alice@contoso.com"
@@ -892,7 +910,10 @@ function Set-AzureADB2CCustomizeUX
     Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml"
 
 .EXAMPLE
-    Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml" -Browser "Firefox"
+    Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml" -Firefox
+
+.EXAMPLE
+    Test-AzureADB2CPolicy -n "ABC-WebApp" -p ".\SignUpOrSignin.xml" -Firefox -Incognito:$False -NewWindow:$False
 #>
 function Test-AzureADB2CPolicy
 (
@@ -909,6 +930,7 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$false)][switch]$Edge = $False,
     [Parameter(Mandatory=$false)][switch]$Firefox = $False,
     [Parameter(Mandatory=$false)][switch]$Incognito = $True,
+    [Parameter(Mandatory=$false)][switch]$NewWindow = $True,
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -977,15 +999,15 @@ function Test-AzureADB2CPolicy
         switch( $browser.ToLower() ) {        
             "firefox" { 
                 $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-                $params = (&{If($Incognito) {"-private "} Else {""}}) + "-new-window"
+                $params = (&{If($Incognito) {"-private "} Else {""}}) + (&{If($NewWindow) {"-new-window"} Else {""}})
             } 
             "chrome" { 
                 $pgm = "chrome.exe"
-                $params = (&{If($Incognito) {"--incognito "} Else {""}}) + "--new-window"
+                $params = (&{If($Incognito) {"--incognito "} Else {""}}) + (&{If($NewWindow) {"--new-window"} Else {""}})
             } 
             default { 
                 $pgm = "msedge.exe"
-                $params = (&{If($Incognito) {"-InPrivate "} Else {""}}) + "-new-window"
+                $params = (&{If($Incognito) {"-InPrivate "} Else {""}}) + (&{If($NewWindow) {"-new-window"} Else {""}})
             } 
         }  
     }
@@ -1489,6 +1511,9 @@ function Get-AzureADB2CAccessToken([string]$tenantId) {
 
 .EXAMPLE
     Set-AzureADB2CClaimsProvider -ProviderName "AzureAD" -AadTenantName "contoso.com"
+
+.EXAMPLE
+    Set-AzureADB2CClaimsProvider -ProviderName "RESTAPI"
 #>
 function Set-AzureADB2CClaimsProvider (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
@@ -2366,10 +2391,10 @@ function New-AzureADB2CTestApp
     Azure Storage Accounts endpoint suffic. Default is core.windows.net
 
 .EXAMPLE
-    Push-AzureADB2CHtmlContent -f ".\html\unified.html" -a "yourstorageaccount" -p "containername/path1/path2" -k $stgkey
+    Deploy-AzureADB2CHtmlContent -f ".\html\unified.html" -a "yourstorageaccount" -p "containername/path1/path2" -k $stgkey
 
 #>
-function Push-AzureADB2CHtmlContent (
+function Deploy-AzureADB2CHtmlContent (
     [Parameter(Mandatory=$true)][Alias('f')][string]$LocalFile = "",
     [Parameter(Mandatory=$false)][Alias('a')][string]$StorageAccountName = "",
     [Parameter(Mandatory=$false)][Alias('p')][string]$ContainerPath = "",
@@ -2440,19 +2465,35 @@ function Push-AzureADB2CHtmlContent (
 .PARAMETER tenantName
     tenant name to use. Default is current connection
 
-.PARAMETER Browser
-    Browser to use. Values can be "Chrome", "Edge" or "Firefox". Default is to use default browser in OS
+.PARAMETER Chrome
+    Use the Chrome browser. Default is your default browser
+
+.PARAMETER Edge
+    Use the Edge browser. Default is your default browser
+
+.PARAMETER Firefox
+    Use the Firefox browser. Default is your default browser
+
+.PARAMETER Incognito
+    Start the browser in incognito/inprivate mode (default). Specify -Incognito:$False to disable
+
+.PARAMETER NewWindow
+    Start the browser in a new window (default). Specify -NewWindow:$False to disable
 
 .EXAMPLE
     Start-AzureADB2CPortal
 
 .EXAMPLE
-    Start-AzureADB2CPortal -t "yourtenant" -Browser "Firefox"
+    Start-AzureADB2CPortal -t "yourtenant" -Firefox -NewWindow:$False
 #>
 function Start-AzureADB2CPortal
 (
     [Parameter(Mandatory=$false)][Alias('t')][string]$TenantName = "",
-    [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "" # Chrome, Edge or Firefox
+    [Parameter(Mandatory=$false)][switch]$Chrome = $False,
+    [Parameter(Mandatory=$false)][switch]$Edge = $False,
+    [Parameter(Mandatory=$false)][switch]$Firefox = $False,
+    [Parameter(Mandatory=$false)][switch]$Incognito = $True,
+    [Parameter(Mandatory=$false)][switch]$NewWindow = $True
 )
 {
     
@@ -2467,6 +2508,9 @@ function Start-AzureADB2CPortal
     $pgm = "chrome.exe"
     $params = "--incognito --new-window"
     if ( !$IsMacOS ) {
+        if ( $Chrome ) { $Browser = "Chrome" }
+        if ( $Edge ) { $Browser = "Edge" }
+        if ( $Firefox ) { $Browser = "Firefox" }
         if ( $browser -eq "") {
             $browser = (Get-ItemProperty HKCU:\Software\Microsoft\windows\Shell\Associations\UrlAssociations\http\UserChoice).ProgId
         }
@@ -2474,15 +2518,15 @@ function Start-AzureADB2CPortal
         switch( $browser.ToLower() ) {        
             "firefox" { 
                 $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-                $params = "-private -new-window"
+                $params = (&{If($Incognito) {"-private "} Else {""}}) + (&{If($NewWindow) {"-new-window"} Else {""}})
             } 
             "chrome" { 
                 $pgm = "chrome.exe"
-                $params = "--incognito --new-window"
+                $params = (&{If($Incognito) {"--incognito "} Else {""}}) + (&{If($NewWindow) {"--new-window"} Else {""}})
             } 
             default { 
                 $pgm = "msedge.exe"
-                $params = "-InPrivate -new-window"
+                $params = (&{If($Incognito) {"-InPrivate "} Else {""}}) + (&{If($NewWindow) {"-new-window"} Else {""}})
             } 
         }  
     }
@@ -2894,6 +2938,23 @@ Function Set-AzureADB2CExtensionAttributeForUser
     Set-AzureADUserExtension -ObjectId $objectId -ExtensionName $fullAttrName  -ExtensionValue $attributeValue
 }
 
+<#
+.SYNOPSIS
+    Lists all available custom domain names for the current tenant
+
+.DESCRIPTION
+    Lists all available custom domain names for the current tenant
+
+.PARAMETER SetGlobalVariable
+    Sets the global variable $global:B2CCustomDomain which is used by the Test-AzureADB2CPolicy cmdlet
+
+.EXAMPLE
+    Get-AzureADB2CCustomDomain
+
+.EXAMPLE
+    Get-AzureADB2CCustomDomain -SetGlobalVariable
+
+#>
 Function Get-AzureADB2CCustomDomain
 (
     [Parameter(Mandatory=$false)][switch]$SetGlobalVariable = $False 
@@ -3061,8 +3122,20 @@ $rp.Save("$PolicyPath/$RelyingPartyFileName")
 .PARAMETER Scope
     Additional scopes you want for the access token
 
-.PARAMETER Browser
-    Which browser to launch: Chrome, Edge or Firefox. Default is your default browser
+.PARAMETER Chrome
+    Use the Chrome browser. Default is your default browser
+
+.PARAMETER Edge
+    Use the Edge browser. Default is your default browser
+
+.PARAMETER Firefox
+    Use the Firefox browser. Default is your default browser
+
+.PARAMETER Incognito
+    Start the browser in incognito/inprivate mode (default). Specify -Incognito:$False to disable
+
+.PARAMETER NewWindow
+    Start the browser in a new window (default). Specify -NewWindow:$False to disable
 
 .PARAMETER Incognito
     If to launch the browser in an incognito/inprivate window
@@ -3082,8 +3155,11 @@ function Connect-AzureADB2CDevicelogin {
         [Parameter()][Alias('s')]$Scope = "",        
         # Timeout in seconds to wait for user to complete sign in process
         [Parameter(DontShow)]$Timeout = 300,
-        [Parameter(Mandatory=$false)][Alias('b')][string]$browser = "", # Chrome, Edge or Firefox
-        [Parameter(Mandatory=$false)][switch]$Incognito = $False
+        [Parameter(Mandatory=$false)][switch]$Chrome = $False,
+        [Parameter(Mandatory=$false)][switch]$Edge = $False,
+        [Parameter(Mandatory=$false)][switch]$Firefox = $False,
+        [Parameter(Mandatory=$false)][switch]$Incognito = $True,
+        [Parameter(Mandatory=$false)][switch]$NewWindow = $True
     )
 
     Function IIf($If, $Right, $Wrong) {If ($If) {$Right} Else {$Wrong}}
@@ -3093,8 +3169,11 @@ function Connect-AzureADB2CDevicelogin {
     $url = "https://microsoft.com/devicelogin"
     $isMacOS = ($env:PATH -imatch "/usr/bin" )
     $pgm = "chrome.exe"
-    $params = "--incognito --new-window"    
+    $params = "--incognito --new-window"
     if ( !$IsMacOS ) {
+        if ( $Chrome ) { $Browser = "Chrome" }
+        if ( $Edge ) { $Browser = "Edge" }
+        if ( $Firefox ) { $Browser = "Firefox" }
         if ( $browser -eq "") {
             $browser = (Get-ItemProperty HKCU:\Software\Microsoft\windows\Shell\Associations\UrlAssociations\http\UserChoice).ProgId
         }
@@ -3102,15 +3181,15 @@ function Connect-AzureADB2CDevicelogin {
         switch( $browser.ToLower() ) {        
             "firefox" { 
                 $pgm = "$env:ProgramFiles\Mozilla Firefox\firefox.exe"
-                $params = (IIf $Incognito "-private " "") + "-new-window"
+                $params = (&{If($Incognito) {"-private "} Else {""}}) + (&{If($NewWindow) {"-new-window"} Else {""}})
             } 
             "chrome" { 
                 $pgm = "chrome.exe"
-                $params = (IIf $Incognito "-incognito " "") + "-new-window"
+                $params = (&{If($Incognito) {"--incognito "} Else {""}}) + (&{If($NewWindow) {"--new-window"} Else {""}})
             } 
             default { 
                 $pgm = "msedge.exe"
-                $params = (IIf $Incognito "-InPrivate " "") + "-new-window"
+                $params = (&{If($Incognito) {"-InPrivate "} Else {""}}) + (&{If($NewWindow) {"-new-window"} Else {""}})
             } 
         }  
     }
@@ -3314,6 +3393,53 @@ $xmlLoc = @"
 "@
 
 $ext.TrustFrameworkPolicy.InnerXml = $ext.TrustFrameworkPolicy.InnerXml.Replace( "</BuildingBlocks>", $xmlLoc + "</BuildingBlocks>" )
+
+$ext.Save("$PolicyPath/$ExtPolicyFileName")
+}
+
+<#
+.SYNOPSIS
+    Renumbers UserJourney Order numbers
+
+.DESCRIPTION
+    Makes sure UserJourney Numbers are in sequence 1..n with no gaps ord duplicates
+
+.PARAMETER PolicyPath
+    Path to policy files. Default is current directory
+
+.PARAMETER PolicyFile
+    Path to policy file. Default is TrustFrameworkExtensions.xml
+
+.EXAMPLE
+    Repair-AzureADB2CUserJourneyOrder 
+
+.EXAMPLE
+    Repair-AzureADB2CUserJourneyOrder -PolicyFile .\SignupOrSignin.xml
+#>
+function Repair-AzureADB2CUserJourneyOrder (
+    [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyPath = "",    
+    [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "TrustFrameworkExtensions.xml"
+
+)
+{
+
+if ( "" -eq $PolicyPath ) {
+    $PolicyPath = (get-location).Path
+}
+
+"$PolicyPath/$PolicyFile"    
+[xml]$ext =Get-Content -Path "$PolicyPath/$PolicyFile" -Raw
+
+foreach( $uj in $ext.TrustFrameworkPolicy.UserJourneys.UserJourney) { 
+    $uj.Id
+    $order = 1
+    foreach( $steps in $uj.OrchestrationSteps ) {
+        foreach( $step in $steps ) {
+            $step.OrchestrationStep[0].Order = "$order"
+            $order++
+        }        
+    }
+}
 
 $ext.Save("$PolicyPath/$ExtPolicyFileName")
 }
