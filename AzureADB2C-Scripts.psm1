@@ -3473,10 +3473,13 @@ return $tenantRegion
     Get the B2C Policy file inheritance tree
 
 .DESCRIPTION
-    Get the B2C Policy file inheritance tree
+    Get the B2C Policy file inheritance tree and returns it as an object or draws it like a tree
 
 .EXAMPLE
     Get-AzureADB2CPolicyTree 
+
+.EXAMPLE
+    Get-AzureADB2CPolicyTree -DrawTree$True
 
 #>
 function Get-AzureADB2CPolicyTree
