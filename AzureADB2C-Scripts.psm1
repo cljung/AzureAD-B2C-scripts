@@ -544,6 +544,7 @@ function Deploy-AzureADB2CPolicyToTenant
                 $policy | Add-Member -type NoteProperty -name "FilePath" -Value $PolicyFile
                 $policy | Add-Member -type NoteProperty -name "xml" -Value $xml
                 $policy | Add-Member -type NoteProperty -name "PolicyData" -Value $PolicyData
+                $policy | Add-Member -type NoteProperty -name "HasChildren" -Value $null
                 $arr += $policy
             }
         }
@@ -623,8 +624,16 @@ function Deploy-AzureADB2CPolicyToTenant
     } else {
         # load the XML Policy files
         $arr = EnumPoliciesFromPath $PolicyPath
-        # upload policies - start with those who have no BasePolicyId dependency (null)
-        ProcessPolicies $arr $null     
+        # find out who is/are the root in inheritance chain so we know which to upload first
+        foreach( $p in $arr ) {
+            $p.HasChildren = ( $null -ne ($arr | where {$_.PolicyId -eq $p.BasePolicyId}) ) 
+        }
+        # upload policies - start with those who are root(s)
+        foreach( $p in $arr ) {
+            if ( $p.HasChildren -eq $False ) {
+                ProcessPolicies $arr $p.BasePolicyId
+            }
+        }
         # check what hasn't been uploaded
         foreach( $p in $arr ) {
             if ( $p.Uploaded -eq $false ) {
