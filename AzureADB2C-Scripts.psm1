@@ -392,7 +392,7 @@ function Get-AzureADB2CPolicyId
        
     # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/directory-assign-admin-roles#b2c-user-flow-administrator
     # get an access token for the B2C Graph App
-    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.Read.TrustFramework"}
     $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
     
     #write-host "Getting policy $PolicyId..."
@@ -472,7 +472,7 @@ function List-AzureADB2CPolicyIds
        
     # https://docs.microsoft.com/en-us/azure/active-directory/users-groups-roles/directory-assign-admin-roles#b2c-user-flow-administrator
     # get an access token for the B2C Graph App
-    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.ReadWrite.TrustFramework"}
+    $oauthBody  = @{grant_type="client_credentials";resource="https://graph.microsoft.com/";client_id=$AppID;client_secret=$AppKey;scope="Policy.Read.TrustFramework"}
     $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$tenantName/oauth2/token?api-version=1.0" -Body $oauthBody
     
     $url = "https://graph.microsoft.com/beta/trustFramework/policies"
@@ -998,6 +998,7 @@ function Test-AzureADB2CPolicy
     $pgm = "chrome.exe"
     $params = "--incognito --new-window"
     if ( !$IsMacOS ) {
+        $Browser = ""
         if ( $Chrome ) { $Browser = "Chrome" }
         if ( $Edge ) { $Browser = "Edge" }
         if ( $Firefox ) { $Browser = "Firefox" }
@@ -2517,6 +2518,7 @@ function Start-AzureADB2CPortal
     $pgm = "chrome.exe"
     $params = "--incognito --new-window"
     if ( !$IsMacOS ) {
+        $Browser = ""
         if ( $Chrome ) { $Browser = "Chrome" }
         if ( $Edge ) { $Browser = "Edge" }
         if ( $Firefox ) { $Browser = "Firefox" }
@@ -3180,6 +3182,7 @@ function Connect-AzureADB2CDevicelogin {
     $pgm = "chrome.exe"
     $params = "--incognito --new-window"
     if ( !$IsMacOS ) {
+        $Browser = ""
         if ( $Chrome ) { $Browser = "Chrome" }
         if ( $Edge ) { $Browser = "Edge" }
         if ( $Firefox ) { $Browser = "Firefox" }
@@ -3485,10 +3488,10 @@ return $tenantRegion
     Get the B2C Policy file inheritance tree and returns it as an object or draws it like a tree
 
 .EXAMPLE
-    Get-AzureADB2CPolicyTree 
+    $ret = Get-AzureADB2CPolicyTree 
 
 .EXAMPLE
-    Get-AzureADB2CPolicyTree -DrawTree$True
+    Get-AzureADB2CPolicyTree -DrawTree
 
 #>
 function Get-AzureADB2CPolicyTree
