@@ -928,7 +928,7 @@ function Test-AzureADB2CPolicy
 (
     [Parameter(Mandatory=$false)][Alias('p')][string]$PolicyFile,
     [Parameter(Mandatory=$false)][Alias('i')][string]$PolicyId,
-    [Parameter(Mandatory=$true)][Alias('n')][string]$WebAppName = "",
+    [Parameter(Mandatory=$false)][Alias('n')][string]$WebAppName = "",
     [Parameter(Mandatory=$false)][Alias('r')][string]$redirect_uri = "https://jwt.ms",
     [Parameter(Mandatory=$false)][Alias('s')][string]$scopes = "",
     [Parameter(Mandatory=$false)][Alias('t')][string]$response_type = "id_token",
@@ -967,6 +967,10 @@ function Test-AzureADB2CPolicy
         }
     }
 
+    if ( "" -eq $WebAppName ) {
+        $WebAppName = $global:b2cAppSettings.TestAppName
+    }
+    
     if ( $QueryString.length -gt 0 -and $QueryString.StartsWith("&") -eq $False ) {
         $QueryString = "&$QueryString"
     }
@@ -2994,7 +2998,7 @@ Function Get-AzureADB2CCustomDomain
         }
     }
     return $B2CCustomDomains
-}
+}   
 
 <#
 .SYNOPSIS
