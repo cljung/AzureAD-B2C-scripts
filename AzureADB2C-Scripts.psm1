@@ -940,6 +940,7 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$false)][switch]$Firefox = $False,
     [Parameter(Mandatory=$false)][switch]$Incognito = $True,
     [Parameter(Mandatory=$false)][switch]$NewWindow = $True,
+    [Parameter(Mandatory=$false)][switch]$WellKnownOpenidConfiguration = $False,
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -1054,7 +1055,11 @@ function Test-AzureADB2CPolicy
         # Q&D urlencode
         $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20") + $QueryString
     
-        $url = "https://{0}/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $hostName, $tenantName, $PolicyId, $qparams
+        if ( $WellKnownOpenidConfiguration ) {
+            $url = "https://{0}/{1}/{2}/v2.0/.well-known/openid-configuration" -f $hostName, $tenantName, $PolicyId
+        } else {
+            $url = "https://{0}/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $hostName, $tenantName, $PolicyId, $qparams
+        }
     }
     
     write-host "Starting Browser`n$url"
