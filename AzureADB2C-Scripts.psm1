@@ -940,7 +940,8 @@ function Test-AzureADB2CPolicy
     [Parameter(Mandatory=$false)][switch]$Firefox = $False,
     [Parameter(Mandatory=$false)][switch]$Incognito = $True,
     [Parameter(Mandatory=$false)][switch]$NewWindow = $True,
-    [Parameter(Mandatory=$false)][switch]$WellKnownOpenidConfiguration = $False,
+    [Parameter(Mandatory=$false)][switch]$Metadata = $False,
+    [Parameter(Mandatory=$false)][switch]$SAMLIDP = $False,
     [Parameter(Mandatory=$false)][boolean]$AzureCli = $False         # if to force Azure CLI on Windows
     )
 {
@@ -975,6 +976,7 @@ function Test-AzureADB2CPolicy
     if ( $QueryString.length -gt 0 -and $QueryString.StartsWith("&") -eq $False ) {
         $QueryString = "&$QueryString"
     }
+
     $hostName = "{0}.b2clogin.com" -f $tenantName.Split(".")[0]    
     if ( $global:B2CCustomDomain.Length -gt 0) {
         $hostName = $global:B2CCustomDomain
@@ -1037,7 +1039,16 @@ function Test-AzureADB2CPolicy
         } else {
             $Issuer = $app.IdentifierUris[0]
         }
-        $url = "https://samltestapp4.azurewebsites.net/SP?Tenant={0}&Policy={1}&Issuer={2}&HostName={3}" -f $tenantName, $PolicyId, $Issuer, $hostName
+
+        if ( $Metadata ) {
+            $url = "https://{0}/{1}/{2}/samlp/metadata" -f  $hostName, $tenantName, $PolicyId
+        } else {
+            if ( $SAMLIDP ) {
+                $url = "https://{0}/{1}/{2}/generic/login?EntityId={3}" -f  $hostName, $tenantName, $PolicyId, $Issuer
+            } else {
+                $url = "https://samltestapp4.azurewebsites.net/SP?Tenant={0}&Policy={1}&Issuer={2}&HostName={3}" -f $tenantName, $PolicyId, $Issuer, $hostName
+            }
+        }
     } else {
         $scope = "openid"
         # if extra scopes passed on cmdline, then we will also ask for an access_token
@@ -1055,7 +1066,7 @@ function Test-AzureADB2CPolicy
         # Q&D urlencode
         $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20") + $QueryString
     
-        if ( $WellKnownOpenidConfiguration ) {
+        if ( $Metadata ) {
             $url = "https://{0}/{1}/{2}/v2.0/.well-known/openid-configuration" -f $hostName, $tenantName, $PolicyId
         } else {
             $url = "https://{0}/{1}/{2}/oauth2/v2.0/authorize?{3}" -f $hostName, $tenantName, $PolicyId, $qparams
