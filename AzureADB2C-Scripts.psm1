@@ -970,7 +970,11 @@ function Test-AzureADB2CPolicy
     }
 
     if ( "" -eq $WebAppName ) {
-        $WebAppName = $global:b2cAppSettings.TestAppName
+        if ( $isSAML ) {
+            $WebAppName = $global:b2cAppSettings.SAMLTestAppName
+        } else {
+            $WebAppName = $global:b2cAppSettings.TestAppName
+        }
     }
     
     if ( $QueryString.length -gt 0 -and $QueryString.StartsWith("&") -eq $False ) {
