@@ -575,8 +575,17 @@ function Deploy-AzureADB2CPolicyToTenant
         # upload the Custom Policy
         write-host "Uploading policy $PolicyId..."
         $url = "https://graph.microsoft.com/beta/trustFramework/policies/$PolicyId/`$value"
-        $resp = Invoke-RestMethod -Method PUT -Uri $url -ContentType "application/xml" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -Body $PolicyData
-        write-host $resp.TrustFrameworkPolicy.PublicPolicyUri
+        try {
+            $resp = Invoke-RestMethod -Method PUT -Uri $url -ContentType "application/xml" -Headers @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} -Body $PolicyData
+            write-host $resp.TrustFrameworkPolicy.PublicPolicyUri
+        } catch {
+            $streamReader = [System.IO.StreamReader]::new($_.Exception.Response.GetResponseStream())
+            $streamReader.BaseStream.Position = 0
+            $streamReader.DiscardBufferedData()
+            $errResp = $streamReader.ReadToEnd()
+            $streamReader.Close()    
+            write-host $errResp -ForegroundColor "Red" -BackgroundColor "Black"
+        }
     }
     
     # either try and use the tenant name passed or grab the tenant from current session
