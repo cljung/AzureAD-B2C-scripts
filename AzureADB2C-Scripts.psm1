@@ -3598,3 +3598,25 @@ function Get-AzureADB2CPolicyTree
         return $arr
     }
 }
+
+<#
+.SYNOPSIS
+    Get the Tenant name from id
+
+.DESCRIPTION
+    converts tenant ids (guids) to real names, like yourtenant.onmicrosoft.com
+
+.EXAMPLE
+    Get-AzureADB2CTenantId -TenantId "b6c11183-fc66-4937-86fe-98a7af31a023"
+
+#>
+function Get-AzureADB2CTenantId
+(
+    [Parameter(Mandatory=$false)][Alias('t')][string]$TenantId = ""
+    )
+{
+    $resp = Invoke-RestMethod -Method "GET" -Uri "https://login.microsoft.com/$tenantId/metadata/json/1"
+    foreach( $allowedAudiences in $resp.allowedAudiences ) {
+        write-host $allowedAudiences.Split("@")[1]
+    }
+}

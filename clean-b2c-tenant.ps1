@@ -49,7 +49,7 @@ foreach( $u in $users ) {
     # don't delete Admins
     # if ( !($u.UserPrincipalName.IndexOf("#EXT#") -gt 0 -or $u.UserPrincipalName.StartsWith("graphexplorer@") -eq $True) ) {
     if ( $null -eq ( Compare-Object -IncludeEqual -ExcludeDifferent $u.id $globalAdmins.id) ) {
-        $ret = Invoke-RestMethod -Method "DELETE" -Uri "ttps://graph.microsoft.com/beta/directory/deletedItems/$($u.id)" -Headers $authHeader  
+        $ret = Invoke-RestMethod -Method "DELETE" -Uri "https://graph.microsoft.com/beta/directory/deletedItems/$($u.id)" -Headers $authHeader  
     }
 }
 
