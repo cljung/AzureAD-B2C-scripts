@@ -4,12 +4,17 @@
 
 $GraphEndpoint="https://graph.microsoft.com/beta"
 
+function RefreshTokenIfExpired() {
+    if ( [int]$global:token_expires_on -le [int](Get-Date -UFormat %s -Millisecond 0) ) {
+        $resp = Get-MSGraphAuthorizationHeader -Scope "https://graph.microsoft.com/.default"    
+    }
+}
 function Invoke-GraphRestMethodGet( 
     [Parameter(Mandatory=$true)][string]$path, 
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-#    write-host "GET $GraphEndpoint/$path"
+    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "GET" -ContentType $ContentType -ErrorAction Stop
 }
 
@@ -19,7 +24,7 @@ function Invoke-GraphRestMethodPost(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-#    write-host "POST $GraphEndpoint/$path`n$body"
+    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "POST" -Body $body -ContentType $ContentType -ErrorAction Stop
 }
 function Invoke-GraphRestMethodPatch( 
@@ -28,7 +33,7 @@ function Invoke-GraphRestMethodPatch(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-#    write-host "PATCH $GraphEndpoint/$path`n$body"
+    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "PATCH" -Body $body -ContentType $ContentType -ErrorAction Stop
 }
 function Invoke-GraphRestMethodPut( 
@@ -37,7 +42,7 @@ function Invoke-GraphRestMethodPut(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-#    write-host "PATCH $GraphEndpoint/$path`n$body"
+    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "PUT" -Body $body -ContentType $ContentType -ErrorAction Stop
 }
 function Invoke-GraphRestMethodDelete( 
@@ -45,7 +50,7 @@ function Invoke-GraphRestMethodDelete(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-#    write-host "DELETE $GraphEndpoint/$path"
+    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "DELETE" -ContentType $ContentType -ErrorAction Stop
 }
 
@@ -63,6 +68,7 @@ function Get-MSGraphAuthorizationHeader
     $oauth      = Invoke-RestMethod -Method Post -Uri "https://login.microsoft.com/$($ctx.Tenant.Id)/oauth2/token?api-version=1.0" -Body $oauthBody    
     $authHeader = @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} 
     $global:authHeader = $authHeader
+    $global:token_expires_on = $oauth.expires_on
     return $authHeader
 }
 
@@ -221,7 +227,10 @@ function Connect-AzADB2C
     # get objectId of current user
     $accessToken = (Get-AzAccessToken -TenantId $TenantId).Token
     $part1=$accessToken.Split(".")[1]
-    $fill = "="*(4 - ($part1.Length % 4))
+    $fill = ""
+    if ( ($part1.Length % 4) -ne 0 ) {
+        $fill = "="*(4 - ($part1.Length % 4))
+    }
     $global:userObjectId = ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String( "$part1$fill" )) | ConvertFrom-json).oid
 
     $resp = Invoke-RestMethod -Method "GET" -Uri "https://login.microsoft.com/$tenantId/metadata/json/1"
@@ -247,7 +256,6 @@ function Connect-AzADB2C
         write-host "B2C Tenant     :`t$tenantID, $tenantName"
         write-host "B2C Client Cred:`t$($env:B2CAppId), $($app.DisplayName)"
     }    
-
     $authHeader = Get-MSGraphAuthorizationHeader -Scope "https://graph.microsoft.com/.default"    
 }
 
@@ -662,8 +670,6 @@ function Import-AzADB2CPolicyToTenant
     [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = ""
 )
 {    
-    $authHeader = $null
-
     # enumerate all XML files in the specified folders and create a array of objects with info we need
     Function EnumPoliciesFromPath( [string]$PolicyPath ) {
         $files = get-childitem -path $policypath -name -include *.xml | Where-Object {! $_.PSIsContainer }
@@ -795,12 +801,10 @@ function Set-AzADB2CCustomAttributeApp
         [Parameter(Mandatory=$false)][Alias('n')][string]$AppDisplayName = "",     # objectId of the same app
         [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = "TrustFrameworkExtensions.xml"     # if the Extensions file has a different name
 )
-{
-    
+{    
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
-    }
-        
+    }        
     [xml]$ext =Get-Content -Path "$PolicyPath/$PolicyFile" -Raw
     
     $tpId = "AAD-Common"
@@ -829,9 +833,9 @@ function Set-AzADB2CCustomAttributeApp
     if ( "" -eq $client_id ) {
         if ( "" -eq $AppDisplayName ) { $AppDisplayName = "b2c-extensions-app"}
         write-host "Using $AppDisplayName"
-        $appExt = Get-AzADApplication -DisplayNameStartWith $AppDisplayName
-        $client_id = $appExt.ApplicationId.Guid   
-        $objectId = $appExt.objectId   
+        $appExt = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+        $client_id = $appExt.value[0].appid
+        $objectId = $appExt.value[0].id
     }
     write-host "Adding TechnicalProfileId $tpId"    
     $claimsProviderXml = $claimsProviderXml.Replace("{client_id}", $client_id)
@@ -1405,32 +1409,6 @@ function Read-AzADB2CConfig
 
 <#
 .SYNOPSIS
-    List tocken cahce
-
-.DESCRIPTION
-    Lists AzureAD's token cache
-
-.PARAMETER TenantId
-    TenantId (guid). Default is current tenantId in $global:tenantId
-
-.EXAMPLE
-    Get-AzADB2CAccessToken
-
-.EXAMPLE
-    Get-AzADB2CAccessToken "280f8d4e-26a4-4d4e-9327-4b76d52ab8e9"
-#>
-function Get-AzADB2CAccessToken([string]$tenantId) {
-    $cache = [Microsoft.IdentityModel.Clients.ActiveDirectory.TokenCache]::DefaultShared
-    if ( "" -eq $tenantId ) {
-        $item =$cache.ReadItems()| where-object {$_.TenantId -eq $global:tenantId }
-    } else {
-        $item =$cache.ReadItems()| where-object {$_.TenantId -eq $tenantId }
-    }
-    return $item.AccessToken
-}
-
-<#
-.SYNOPSIS
     Adds a ClaimsProvider
 
 .DESCRIPTION
@@ -1959,9 +1937,10 @@ function New-AzADB2CIdentityExperienceFrameworkApps
             "value": "user_impersonation"
         }    
 "@
-    $appIEF = Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris "https://$DisplayName" `
+    $redirectUri = "https://$($global:TenantName.Split(".")[0]).b2clogin.com/$global:TenantName"
+    $appIEF = Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris $redirectUri `
         -signInAudience "AzureADMyOrg" -requiredResourceAccess $req1 -oauth2PermissionScopes $oauth2PermissionScopes `
-        -enableIdTokenIssuance -Grant  
+        -WebApp -EnableIdTokenIssuance -Grant -SetOwner 
 
     $req2 = @"
         $req1,
@@ -1975,9 +1954,9 @@ function New-AzADB2CIdentityExperienceFrameworkApps
 			]
 		}
 "@
-    $appPIEF = Add-AzADB2CApplication -DisplayName $ProxyDisplayName -redirectUris "https://$ProxyDisplayName" `
+    $appPIEF = Add-AzADB2CApplication -DisplayName $ProxyDisplayName -redirectUris $redirectUri `
         -signInAudience "AzureADMultipleOrgs" -requiredResourceAccess $req2 `
-        -enableIdTokenIssuance -Grant 
+        -PublicClient -EnableIdTokenIssuance -Grant -SetOwner
 }
 
 <#
@@ -2077,62 +2056,6 @@ function New-AzADB2CPolicyKey
     write-host "key created: $KeyContainerName"    
 }
 
-<#
-.SYNOPSIS
-    Grants App Permission
-
-.DESCRIPTION
-    Grans Permission to a registered App
-
-.PARAMETER TenantName
-    Name of tenant. Default is one currently connected to
-
-.PARAMETER AppDisplayName
-    Name of registered app
-
-.PARAMETER AppID
-    AppID for your client_credentials. Default is to use $env:B2CAppID
-
-.PARAMETER AppKey
-    secret for your client_credentials. Default is to use $env:B2CAppKey
-
-.EXAMPLE
-    Grant-AzADB2CAppPermissions -t "yourtenant" -n "Your-AppName"
-
-#>
-function Grant-AzADB2CAppPermissions
-(
-    [Parameter(Mandatory=$true)][Alias('n')][string]$AppDisplayName = ""
-)
-{
-    $app = Get-AzADApplication -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
-    $sp = Get-AzADServicePrincipal -All $true | where-object {$_.DisplayName -eq $AppDisplayName } -ErrorAction SilentlyContinue
-    if ( $null -eq $app -or $null -eq $sp ) {
-        write-error "No ServicePrincipal with name $AppDisplayName"
-        return
-    }
-    $startTime = (get-date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    $expiryTime = ((get-date).AddYears(2)).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-    $scope = ""
-    foreach( $reqResAccess in $app.RequiredResourceAccess ) { 
-        $resource = (Get-AzADServicePrincipal -All $true | where-object {$_.ApplicationId.Guid -eq $reqResAccess.ResourceAppId })
-        $ResourceObjectId = $resource.ObjectId
-        foreach( $ra in $reqResAccess.ResourceAccess ) {
-            $scope += ($resource.oauth2Permissions | where-object {$_.Id -eq $ra.Id}).Value + " "
-        }
-        $body = @{
-            clientId    = $sp.ObjectId
-            consentType = "AllPrincipals"
-            principalId = $null
-            resourceId  = $ResourceObjectId
-            scope       = $scope
-            startTime   = $startTime
-            expiryTime  = $expiryTime 
-        }
-        write-host "Granting $($resource.DisplayName) - $scope to $AppDisplayName"
-        Invoke-GraphRestMethodPost "oauth2PermissionGrants" $($body | convertto-json)
-    }
-}
 function Add-AzADB2CApplication
 (
     [Parameter(Mandatory=$true)][string]$DisplayName = "",
@@ -2142,11 +2065,27 @@ function Add-AzADB2CApplication
     [Parameter(Mandatory=$false)][string]$signInAudience = "AzureADandPersonalMicrosoftAccount",
     [Parameter(Mandatory=$false)][switch]$Grant = $False,
     [Parameter(Mandatory=$false)][switch]$SetOwner = $False,
+    [Parameter(Mandatory=$false)][switch]$WebApp = $False,
     [Parameter(Mandatory=$false)][switch]$PublicClient = $False,
-    [Parameter(Mandatory=$false)][switch]$enableIdTokenIssuance = $True,
-    [Parameter(Mandatory=$false)][switch]$enableAccessTokenIssuance = $True
+    [Parameter(Mandatory=$false)][switch]$EnableIdTokenIssuance = $True,
+    [Parameter(Mandatory=$false)][switch]$EnableAccessTokenIssuance = $True,
+    [Parameter(Mandatory=$false)][switch]$AccessTokenAcceptedVersionV2 = $false
 )
 {
+    $accessTokenAcceptedVersion = "null"
+    if ( $accessTokenAcceptedVersionV2 ) {
+        $accessTokenAcceptedVersion = "`"2`""
+    }
+    $isFallbackPublicClient = "false"
+    $redirectUrisPublic = ""
+    if ( $PublicClient ) {
+        $isFallbackPublicClient = "true"
+        $redirectUrisPublic = "`"$redirectUris`""
+    }
+    $redirectUrisWeb = ""
+    if ( $WebApp) {
+        $redirectUrisWeb = "`"$redirectUris`""
+    }
 $body = @"
 {
     "identifierUris": [
@@ -2154,8 +2093,9 @@ $body = @"
     ],
     "displayName": "$DisplayName",
     "signInAudience": "$signInAudience",
+    "isFallbackPublicClient": $isFallbackPublicClient,
     "api": {
-        "requestedAccessTokenVersion": 2,
+        "requestedAccessTokenVersion": $accessTokenAcceptedVersion,
         "oauth2PermissionScopes": [
             $oauth2PermissionScopes
         ]
@@ -2164,9 +2104,15 @@ $body = @"
     "requiredResourceAccess": [
         $requiredResourceAccess
     ],
+    "appRoles": [],
+    "publicClient": {
+        "redirectUris": [
+            $redirectUrisPublic
+        ]
+    },
     "web": {
         "redirectUris": [
-            "$redirectUris"
+            $redirectUrisWeb
         ],
         "implicitGrantSettings": {
             "enableIdTokenIssuance": $($enableIdTokenIssuance.ToString().ToLower()),
@@ -2305,7 +2251,8 @@ function New-AzADB2CTestApp
             ]
         }
 "@
-    Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris "https://jwt.ms" -requiredResourceAccess $requiredResourceAccess -Grant 
+    Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris "https://jwt.ms" -requiredResourceAccess $requiredResourceAccess `
+                    -WebApp -EnableIdTokenIssuance -EnableAccessTokenIssuance -Grant -SetOwner
 }
 
 <#
@@ -2543,7 +2490,8 @@ Function New-AzADB2CGraphApp
         }
 "@
 
-    $app = Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris "https://$DisplayName" -requiredResourceAccess $requiredResourceAccess 
+    $app = Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris "https://$DisplayName" -requiredResourceAccess $requiredResourceAccess `
+            -WebApp -EnableIdTokenIssuance 
     write-host "AppID`t`t$($app.AppId)`nObjectID:`t$($app.Id)"
 
     write-host "`nCreating App Key / Secret / client_secret - please remember this value and keep it safe"
@@ -2682,12 +2630,20 @@ Function New-AzADB2CExtensionAttribute
     [Parameter(Mandatory=$False)][Alias('d')][string]$dataType = "String" # String, Boolean, Date
 )
 {
-    $appExt = Get-AzADApplication -DisplayNameStartWith $AppDisplayName
-    if ( $null -eq $appExt ) {
+    $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    if ( $resp.value.Length -ne 1 ) {
         write-warning "App does not exist $AppDisplayName"
-    } else {
-        New-AzADApplicationExtensionProperty -ObjectID $appExt.objectId -DataType $dataType -Name $attributeName -TargetObjects @("User") 
+        return
     }
+    $appExt = $resp.value[0]    
+$body = @"
+{
+    "name": "$attributeName",
+    "dataType": "$dataType",
+    "targetObjects": [ "User"]
+}
+"@
+    $resp = Invoke-GraphRestMethodPost "applications/$($appExt.id)/extensionProperties" $body    
 }
 <#
 .SYNOPSIS
@@ -2712,14 +2668,19 @@ Function Remove-AzADB2CExtensionAttribute
     [Parameter(Mandatory=$True)][Alias('n')][string]$attributeName = ""
 )
 {
-    $appExt = Get-AzADApplication -DisplayNameStartWith $AppDisplayName
-    if ( $null -eq $appExt ) {
+    $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    if ( $resp.value.Length -ne 1 ) {
         write-warning "App does not exist $AppDisplayName"
-    } else {
-        $fullAttrName = "extension_" + $appExt.ApplicationId.Guid.Replace("-","") + "_$attributeName"
-        $attrObj = Get-AzureADExtensionProperty | where {$_.Name -eq $fullAttrName}
-        Remove-AzureADApplicationExtensionProperty -ObjectId $appExt.objectId -ExtensionPropertyId $attrObj.ObjectId
+        return
     }
+    $appExt = $resp.value[0]    
+    $fullAttrName = "extension_" + $appExt.appid.Replace("-","") + "_$attributeName"
+    $resp = Invoke-GraphRestMethodGet "applications/$($appExt.id)/extensionProperties?`$filter=name eq '$fullAttrName'&`$select=id,appid"
+    if ( $resp.value.Length -ne 1 ) {
+        write-warning "Extension Attribute does not exist $fullAttrName"
+        return
+    }
+    $resp = Invoke-GraphRestMethodDelete "applications/$($appExt.id)/extensionProperties/$($resp.value[0].id)"
 }
 
 <#
@@ -2749,17 +2710,18 @@ Function Get-AzADB2CExtensionAttributesForUser
 )
 {
     if ( "" -ne $signInName ) {
-        $token = Get-MSGraphAPIAccessToken
-        $authHeader =@{ 'Content-Type'='application/json'; 'Authorization'=$token.Type + ' ' + $token.Token }
-        $url = "https://graph.microsoft.com/beta/users?`$filter=identities/any(c:c/issuerAssignedId eq '$signInName' and c/issuer eq '$($global:TenantName)')"
-        $user = Invoke-RestMethod -Uri $url -Headers $authHeader -Method "GET"
-        if ( $user.value.Count -eq 0 ) {
+        $users = Invoke-GraphRestMethodGet "users?`$filter=identities/any(c:c/issuerAssignedId eq '$signInName' and c/issuer eq '$($global:TenantName)')"
+        if ( $users.value.Count -eq 0 ) {
             write-error "User with signInName $signInName not found"
             return
         }
-        $objectId = $user.value[0].Id
+        $user = $users.value[0]
+    } else {
+        $user = Invoke-GraphRestMethodGet "users/$objectId"
     }
-    Get-AzADUserExtension -ObjectId $user.ObjectId
+    foreach( $extattr in $user.psobject.properties.Where({$_.Name.StartsWith("extension_")}) ) {
+        write-host $extattr.TypeNameOfValue.Replace("System.", "") "`t" $extattr.Name "`t" $extattr.Value
+    }
 }
 
 <#
@@ -2798,25 +2760,33 @@ Function Set-AzADB2CExtensionAttributeForUser
 )
 {
     if ( "" -ne $signInName ) {
-        $token = Get-MSGraphAPIAccessToken
-        $authHeader =@{ 'Content-Type'='application/json'; 'Authorization'=$token.Type + ' ' + $token.Token }
-        $url = "https://graph.microsoft.com/beta/users?`$filter=identities/any(c:c/issuerAssignedId eq '$signInName' and c/issuer eq '$($global:TenantName)')"
-        $user = Invoke-RestMethod -Uri $url -Headers $authHeader -Method "GET"
-        if ( $user.value.Count -eq 0 ) {
+        $users = Invoke-GraphRestMethodGet "users?`$filter=identities/any(c:c/issuerAssignedId eq '$signInName' and c/issuer eq '$($global:TenantName)')"
+        if ( $users.value.Count -eq 0 ) {
             write-error "User with signInName $signInName not found"
             return
         }
-        $objectId = $user.ObjectId
+        $user = $users.value[0]
+    } else {
+        $user = Invoke-GraphRestMethodGet "users/$objectId"
     }
-    $fullAttrName = $attributeName
-    if ( !$attributeName.StartsWith("extension_") ) {
-        $appExt = Get-AzADApplication -DisplayNameStartWith $AppDisplayName
-        if ( $null -eq $appExt ) {
-            write-warning "App does not exist $AppDisplayName"
-        }
-        $fullAttrName = "extension_" + $appExt.ApplicationId.Guid.Replace("-","") + "_$attributeName"
-    } 
-    Set-AzADUserExtension -ObjectId $objectId -ExtensionName $fullAttrName  -ExtensionValue $attributeValue
+    $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    if ( $resp.value.Length -ne 1 ) {
+        write-warning "App does not exist $AppDisplayName"
+        return
+    }
+    $appExt = $resp.value[0]    
+    $fullAttrName = "extension_" + $appExt.appid.Replace("-","") + "_$attributeName"
+    $resp = Invoke-GraphRestMethodGet "applications/$($appExt.id)/extensionProperties?`$filter=name eq '$fullAttrName'&`$select=id,appid"
+    if ( $resp.value.Length -ne 1 ) {
+        write-warning "Extension Attribute does not exist $fullAttrName"
+        return
+    }
+$body = @"
+{
+    "$fullAttrName": "$attributeValue"
+}
+"@
+    $resp = Invoke-GraphRestMethodPatch "users/$($user.id)" $body    
 }
 
 <#
@@ -3102,7 +3072,10 @@ function Connect-AzADB2CDevicelogin {
     $global:authHeader =@{ 'Authorization'=$retval.token_type + ' ' + $retval.access_token }
 
     $part1=$retval.access_token.Split(".")[1]
-    $fill = "="*(4 - ($part1.Length % 4))
+    $fill = ""
+    if ( ($part1.Length % 4) -ne 0 ) {
+        $fill = "="*(4 - ($part1.Length % 4))
+    }
     $jsonAccessToken = ([System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String( "$part1$fill" )) | ConvertFrom-json)
     $global:userObjectId = $jsonAccessToken.oid
     $user = $jsonAccessToken.email
@@ -3438,7 +3411,6 @@ Export-ModuleMember -function Add-AzADB2CClaimsProvider
 Export-ModuleMember -function Set-AzADB2CCustomAttributeApp
 Export-ModuleMember -function Set-AzADB2CCustomizeUX
 Export-ModuleMember -function Set-AzADB2CExtensionAttributeForUser
-Export-ModuleMember -function Grant-AzADB2CAppPermissions
 Export-ModuleMember -function Set-AzADB2CKmsi
 Export-ModuleMember -function Set-AzADB2CLocalization
 Export-ModuleMember -function Set-AzADB2CPolicyDetails

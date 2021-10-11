@@ -41,15 +41,16 @@ with the scope for creating this AppReg. Change ***yourtenant*** to your B2C ten
 When you run the device login command, it will copy the device code onto your clipboard and you can paste it into your browser with Ctrl+V. The rest of the signin depends on how you company have configured device login to work.
    
 ```Powershell
-# First time, we need to login like this
 Connect-AzADB2CDevicelogin -TenantName "yourtenant.onmicrosoft.com" -Scope "Directory.ReadWrite.All"
+```
+```Powershell
 New-AzADB2CGraphApp -n "B2C-Graph-App" -CreateConfigFile
 ```
 
 The `-CreateConfigFile` switch will create a file named `b2cAppSettings_yourtenant.json` and copy in the AppID (client_id) and key (client_secret) into the file. If you don't pass the switch, you have to copy-n-paste the json output for "ClientCredentials" and update the b2cAppSettings.json file. Update the tenant name in b2cAppSettings.json too.
 
 ### 3. Grant permissions to ***B2C-Graph-App***
-The command `New-AzADB2CGraphApp` creats an AppReg to be used for client credentials, but it does not grant permissions to it. You leed to login to [https://portal.azure.com/yourtenant.onmicrosoft.com](https://portal.azure.com/yourtenant.onmicrosoft.com) and grant admin consent under API permissions.
+The command `New-AzADB2CGraphApp` creats an AppReg to be used for client credentials, but it does not grant permissions to it. You leed to login to [https://portal.azure.com/yourtenant.onmicrosoft.com](https://portal.azure.com/yourtenant.onmicrosoft.com) and grant admin consent under API permissions. If the `Grant admin consent` button is greyed out in the portal, just wait a few seconds and do a hard refresh in the browser.
 
 ![Permissions to Grant](media/01-permissions-to-grant.png)
 
