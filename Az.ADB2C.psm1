@@ -51,6 +51,32 @@ function Invoke-GraphRestMethodDelete(
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "DELETE" -ContentType $ContentType -ErrorAction Stop
 }
 
+function Get-Application (
+    [string]$Path = "", 
+    [string]$DisplayName = "", 
+    [string]$DisplayNameStartsWith = "", 
+    [string]$Select = ""
+) 
+{
+    $q = "?"
+    if ( $Path.Length -gt 0 ) {
+        $path = "applications/$path"
+    } else {
+        $path = "applications"
+    }
+    if ( $DisplayName.Length -gt 0 ) {
+        $path += "$q`$filter=displayName eq '$DisplayName'"
+        $q = "&"
+    } elseif ( $DisplayNameStartsWith.Length -gt 0 ) {
+        $path += "$q`$filter=startswith(displayName, '$DisplayNameStartsWith')"
+        $q = "&"
+    }
+    if ( $select.Length -gt 0 ) {
+        $path += "$q`$select=$select"
+    }
+    write-host $path
+    return Invoke-GraphRestMethodGet $path
+}
 function Connect-AzADB2CClientCredentials
 (
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppId = "", 
@@ -532,18 +558,21 @@ function Set-AzADB2CPolicyDetails
         write-host "Tenant:  `t$tenantName`nTenantID:`t$tenantId"
 
         write-host "Getting AppID's for $IefAppName"
-        $resp = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$iefAppName'&`$select=id,appid"
+        #$resp = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$iefAppName'&`$select=id,appid"
+        $resp = Get-Application -DisplayName $iefAppName -Select "id,appid"
         $appIdIEF = $resp.value[0].appid
         write-host "AppId:`t$appIdIEF"
 
         write-host "Getting AppID's for $IefProxyAppName"
-        $resp = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$iefProxyAppName'&`$select=id,appid"
+        #$resp = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$iefProxyAppName'&`$select=id,appid"
+        $resp = Get-Application -DisplayName $iefProxyAppName -Select "id,appid"
         $AppIdIEFProxy = $resp.value[0].appid
         write-host "AppId:`t$AppIdIEFProxy"
 
         if ( "" -ne $ExtAppDisplayName ) {    
             write-host "Getting AppID's for $ExtAppDisplayName"
-            $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$ExtAppDisplayName')&`$select=id,appid"
+            #$resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$ExtAppDisplayName')&`$select=id,appid"
+            $resp = Get-Application -DisplayNameStartsWith $ExtAppDisplayName -Select "id,appid"
             $appExtAppId = $resp.value[0].appid
             $appExtObjectId = $resp.value[0].id
             write-host "ObjectID:`t$appExtObjectId`nAppId:`t$appExtAppId"
@@ -837,7 +866,8 @@ function Set-AzADB2CCustomAttributeApp
     if ( "" -eq $client_id ) {
         if ( "" -eq $AppDisplayName ) { $AppDisplayName = "b2c-extensions-app"}
         write-host "Using $AppDisplayName"
-        $appExt = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+        #$appExt = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+        $appExt = Get-Application -DisplayNameStartsWith $AppDisplayName -Select "id,appid"
         $client_id = $appExt.value[0].appid
         $objectId = $appExt.value[0].id
     }
@@ -1098,7 +1128,8 @@ function Test-AzADB2CPolicy
     RefreshTokenIfExpired
 
     write-host "Getting test app $WebAppName"
-    $app = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$WebAppName')"    
+    #$app = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$WebAppName')"    
+    $app = Get-Application -DisplayNameStartsWith $WebAppName
     if ( $app.value.Length -eq 0 ) {
         write-error "App name isn't registered: $WebAppName"
         return
@@ -1916,7 +1947,8 @@ function New-AzADB2CIdentityExperienceFrameworkApps
     $ProxyDisplayName = "Proxy$DisplayName"
 
     # check that they don't already exists
-    $app = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$DisplayName')"    
+    #s$app = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$DisplayName')"    
+    $app = Get-Application -DisplayName $DisplayName
     if ( $app.value.Count -ge 1 ) {
         write-warning "App already exists $DisplayName - You have already configured Identity Experience Framework for this tenant"
         return
@@ -2242,7 +2274,8 @@ function New-AzADB2CTestApp
     RefreshTokenIfExpired
     $tenantName = $global:tenantName
     # check that they don't already exists
-    $app = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$DisplayName')"    
+    #$app = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$DisplayName')"    
+    $app = Get-Application -DisplayName $DisplayName
     if ( $app.value.Count -ge 1 ) {
         write-warning "App already exists $DisplayName"
         return
@@ -2643,7 +2676,8 @@ Function New-AzADB2CExtensionAttribute
 )
 {
     RefreshTokenIfExpired
-    $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    #$resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    $resp = Get-Application -DisplayNameStartsWith $AppDisplayName -Select "id,appid"
     if ( $resp.value.Length -ne 1 ) {
         write-warning "App does not exist $AppDisplayName"
         return
@@ -2682,14 +2716,16 @@ Function Remove-AzADB2CExtensionAttribute
 )
 {
     RefreshTokenIfExpired
-    $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    #$resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
+    $resp = Get-Application -DisplayNameStartsWith $AppDisplayName -Select "id,appid"
     if ( $resp.value.Length -ne 1 ) {
         write-warning "App does not exist $AppDisplayName"
         return
     }
     $appExt = $resp.value[0]    
     $fullAttrName = "extension_" + $appExt.appid.Replace("-","") + "_$attributeName"
-    $resp = Invoke-GraphRestMethodGet "applications/$($appExt.id)/extensionProperties?`$filter=name eq '$fullAttrName'&`$select=id,appid"
+    #$resp = Invoke-GraphRestMethodGet "applications/$($appExt.id)/extensionProperties?`$filter=name eq '$fullAttrName'&`$select=id,appid"
+    $resp = Get-Application -Path "$($appExt.id)/extensionProperties" -Select "id,appid"
     if ( $resp.value.Length -ne 1 ) {
         write-warning "Extension Attribute does not exist $fullAttrName"
         return
@@ -2791,7 +2827,8 @@ Function Set-AzADB2CExtensionAttributeForUser
     }
     $appExt = $resp.value[0]    
     $fullAttrName = "extension_" + $appExt.appid.Replace("-","") + "_$attributeName"
-    $resp = Invoke-GraphRestMethodGet "applications/$($appExt.id)/extensionProperties?`$filter=name eq '$fullAttrName'&`$select=id,appid"
+    #$resp = Invoke-GraphRestMethodGet "applications/$($appExt.id)/extensionProperties?`$filter=name eq '$fullAttrName'&`$select=id,appid"
+    $resp = Get-Application -Path "$($appExt.id)/extensionProperties" -Select "id,appid"
     if ( $resp.value.Length -ne 1 ) {
         write-warning "Extension Attribute does not exist $fullAttrName"
         return
