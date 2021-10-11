@@ -14,7 +14,6 @@ function Invoke-GraphRestMethodGet(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "GET" -ContentType $ContentType -ErrorAction Stop
 }
 
@@ -24,7 +23,6 @@ function Invoke-GraphRestMethodPost(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "POST" -Body $body -ContentType $ContentType -ErrorAction Stop
 }
 function Invoke-GraphRestMethodPatch( 
@@ -33,7 +31,6 @@ function Invoke-GraphRestMethodPatch(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "PATCH" -Body $body -ContentType $ContentType -ErrorAction Stop
 }
 function Invoke-GraphRestMethodPut( 
@@ -42,7 +39,6 @@ function Invoke-GraphRestMethodPut(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "PUT" -Body $body -ContentType $ContentType -ErrorAction Stop
 }
 function Invoke-GraphRestMethodDelete( 
@@ -50,7 +46,6 @@ function Invoke-GraphRestMethodDelete(
     [Parameter(Mandatory=$false)][string]$ContentType = "application/json"
 )
 {
-    RefreshTokenIfExpired
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "DELETE" -ContentType $ContentType -ErrorAction Stop
 }
 
@@ -525,6 +520,8 @@ function Set-AzADB2CPolicyDetails
         $appExtAppId = "b2c-extension-app AppId"
         $appExtObjectId = "b2c-extension-app objectId"
     } else {
+        RefreshTokenIfExpired
+
         $tenantID = Get-TenantIdFromName -TenantName $TenantName
         <##>
         if ( "" -eq $tenantID ) {
@@ -600,6 +597,7 @@ function Get-AzADB2CPolicy
     [Parameter(Mandatory=$false)][Alias('f')][string]$PolicyFile = ""
     )
 {
+    RefreshTokenIfExpired
     $resp = Invoke-GraphRestMethodGet "trustFramework/policies/$PolicyId/`$value" -ContentType "application/xml"
     if ( "" -eq $PolicyFile ) {
         return $resp.OuterXml
@@ -632,6 +630,7 @@ function Get-AzADB2CPolicy
 #>
 function Get-AzADB2CPolicyIds()
 {
+    RefreshTokenIfExpired
     $resp = Invoke-GraphRestMethodGet "trustFramework/policies" -ContentType "application/xml"
     $resp.value | ConvertTo-json
 }
@@ -731,6 +730,8 @@ function Import-AzADB2CPolicyToTenant
         }
     }
     
+    RefreshTokenIfExpired
+
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }
@@ -829,6 +830,8 @@ function Set-AzADB2CCustomAttributeApp
       return
     }
     
+    RefreshTokenIfExpired
+
     # if no client_id given, use the standard b2c-extensions-app
     if ( "" -eq $client_id ) {
         if ( "" -eq $AppDisplayName ) { $AppDisplayName = "b2c-extensions-app"}
@@ -905,6 +908,7 @@ function Set-AzADB2CCustomizeUX
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }
+    RefreshTokenIfExpired
 
     [xml]$ext =Get-Content -Path "$PolicyPath\$ExtPolicyFileName" -Raw
     if ((Test-Path -Path "$PolicyPath/$BasePolicyFileName" -PathType Leaf) -eq $True ) {
@@ -1090,6 +1094,8 @@ function Test-AzADB2CPolicy
         write-host "Using B2C Custom Domain" $global:B2CCustomDomain        
     }
 
+    RefreshTokenIfExpired
+
     write-host "Getting test app $WebAppName"
     $app = Get-AzADApplication -DisplayNameStartWith $WebAppName -ErrorAction SilentlyContinue
     
@@ -1194,7 +1200,7 @@ function Remove-AzADB2CPolicyFromTenant
     [Parameter(Mandatory=$false)][Alias('i')][string]$PolicyId = ""
 )
 {    
-    $authHeader = $null
+    RefreshTokenIfExpired
     # invoke the Graph REST API to upload the Policy
     Function DeletePolicy( [string]$PolicyId) {
         # https://docs.microsoft.com/en-us/graph/api/trustframework-put-trustframeworkpolicy?view=graph-rest-beta
@@ -1459,6 +1465,7 @@ function Add-AzADB2CClaimsProvider (
     if ( "" -eq $AadTenantName -and "azuread" -eq $ProviderName.ToLower() ) {
         $AadTenantName = ($global:b2cAppSettings.ClaimsProviders | where {$_.Name -eq $ProviderName }).DomainName
     }
+    RefreshTokenIfExpired
     [xml]$ext =Get-Content -Path "$PolicyPath/$ExtPolicyFileName" -Raw
     if ((Test-Path -Path "$PolicyPath/$BasePolicyFileName" -PathType Leaf) -eq $True ) {
         [xml]$base = Get-Content -Path "$PolicyPath/$BasePolicyFileName" -Raw
@@ -1868,6 +1875,7 @@ Function Enable-AzADB2CIdentityExperienceFramework
     [Parameter(Mandatory=$false)][Alias('f')][string]$FacebookSecret = "abc123"              # dummy fb secret
 )
 {
+    RefreshTokenIfExpired
     New-AzADB2CPolicyKey -KeyContainerName "B2C_1A_TokenSigningKeyContainer" -KeyType "RSA" -KeyUse "sig"
     New-AzADB2CPolicyKey -KeyContainerName "B2C_1A_TokenEncryptionKeyContainer" -KeyType "RSA" -KeyUse "enc"
     New-AzADB2CIdentityExperienceFrameworkApps
@@ -1900,6 +1908,7 @@ function New-AzADB2CIdentityExperienceFrameworkApps
     [Parameter(Mandatory=$false)][Alias('n')][string]$DisplayName = "IdentityExperienceFramework"
 )
 {
+    RefreshTokenIfExpired
     $tenantName = $global:tenantName
     $tenantID = $global:tenantID
     write-host "$tenantName`n$tenantId"
@@ -2005,6 +2014,7 @@ function New-AzADB2CPolicyKey
     [Parameter(Mandatory=$false)][Alias('s')][string]$Secret = ""           # used when $KeyType==secret
 )
 {
+    RefreshTokenIfExpired
     $KeyType = $KeyType.ToLower()
     $KeyUse = $KeyUse.ToLower()
 
@@ -2229,6 +2239,7 @@ function New-AzADB2CTestApp
     [Parameter(Mandatory=$true)][Alias('n')][string]$DisplayName = "Test-WebApp"
 )
 {
+    RefreshTokenIfExpired
     $tenantName = $global:tenantName
     # check that they don't already exists
     $iefApp = (Get-AzADApplication -DisplayName $DisplayName)
@@ -2589,6 +2600,7 @@ Function New-AzADB2CLocalAdmin
           ]
         }
 "@
+    RefreshTokenIfExpired
     $user = Invoke-GraphRestMethodPost "users" -Body $body
     write-host "User`t`t$username`nObjectID:`t$($user.id)"
     foreach( $roleName in $RoleNames) {
@@ -2630,6 +2642,7 @@ Function New-AzADB2CExtensionAttribute
     [Parameter(Mandatory=$False)][Alias('d')][string]$dataType = "String" # String, Boolean, Date
 )
 {
+    RefreshTokenIfExpired
     $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
     if ( $resp.value.Length -ne 1 ) {
         write-warning "App does not exist $AppDisplayName"
@@ -2668,6 +2681,7 @@ Function Remove-AzADB2CExtensionAttribute
     [Parameter(Mandatory=$True)][Alias('n')][string]$attributeName = ""
 )
 {
+    RefreshTokenIfExpired
     $resp = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$AppDisplayName')&`$select=id,appid"
     if ( $resp.value.Length -ne 1 ) {
         write-warning "App does not exist $AppDisplayName"
@@ -2709,6 +2723,7 @@ Function Get-AzADB2CExtensionAttributesForUser
     [Parameter(Mandatory=$false)][Alias('o')][string]$objectId = ""
 )
 {
+    RefreshTokenIfExpired
     if ( "" -ne $signInName ) {
         $users = Invoke-GraphRestMethodGet "users?`$filter=identities/any(c:c/issuerAssignedId eq '$signInName' and c/issuer eq '$($global:TenantName)')"
         if ( $users.value.Count -eq 0 ) {
@@ -2811,6 +2826,7 @@ Function Get-AzADB2CCustomDomain
     [Parameter(Mandatory=$false)][switch]$SetGlobalVariable = $False 
 )
 {
+    RefreshTokenIfExpired
     $resp = Invoke-GraphRestMethodGet "domains"
     $B2CCustomDomains = @()
     foreach( $domain in $resp.value.id) { 
@@ -2859,6 +2875,7 @@ function Add-AzADB2CSAML2Protocol (
     [Parameter(Mandatory=$false)][Alias('e')][string]$ExtPolicyFileName = "TrustFrameworkExtensions.xml"
 )
 {
+    RefreshTokenIfExpired
     if ( "" -eq $PolicyPath ) {
         $PolicyPath = (get-location).Path
     }        
@@ -3308,6 +3325,7 @@ function Get-AzADB2CPolicyTree
     [Parameter(Mandatory=$false)][switch]$DrawTree = $False
     )
 {
+    RefreshTokenIfExpired
     write-host "Getting a list of policies..."
     $resp = Invoke-GraphRestMethodGet "trustFramework/policies" -ContentType "application/xml"
     $policies = $resp.value
