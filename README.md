@@ -95,6 +95,13 @@ Then, run the cmdlet `Connect-AzADB2C` and specify your config file on the comma
 Connect-AzADB2C -ConfigPath .\b2cAppsettings_yourtenant.json
 ```
 
+If you don't like the concept of working with client credentials, you can use the device login method and use you interactive user. 
+In order to be able to upload your B2C Custom Policies, you would need to specify the correct scopes, like below. 
+
+```powershell
+Connect-AzADB2CDevicelogin -TenantName "yourtenant.onmicrosoft.com" -Scope "Application.Read.All Policy.ReadWrite.TrustFramework"
+```
+
 ## Create a B2C Custom Policy project based on the B2C Starter Pack
 Azure AD B2C Custom Policies has a starter pack of configuration files located in this [github repo](https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack). When you work with B2C Custom Policies, you normally download the Starter Pack of choice and open them in a text editor to make your configuration modifications. All this work has been compacted in to one powershell command that will do all this for you.
 

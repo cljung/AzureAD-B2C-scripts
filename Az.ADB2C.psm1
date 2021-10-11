@@ -5,9 +5,11 @@
 $GraphEndpoint="https://graph.microsoft.com/beta"
 
 function RefreshTokenIfExpired() {
-    if ( [int]$global:token_expires_on -le [int](Get-Date -UFormat %s -Millisecond 0) ) {
-        $resp = Get-MSGraphAuthorizationHeader -Scope "https://graph.microsoft.com/.default"    
-    }
+    if ( $global:authMethod -eq "Connect-AzADB2CClientCredentials" ) {
+        if ( [int]$global:token_expires_on -le [int](Get-Date -UFormat %s -Millisecond 0) ) {
+            $resp = Connect-AzADB2CClientCredentials -Scope "https://graph.microsoft.com/.default"    
+        }
+    } # for DeviceLogin, you have to issue the command and login again
 }
 function Invoke-GraphRestMethodGet( 
     [Parameter(Mandatory=$true)][string]$path, 
@@ -49,7 +51,7 @@ function Invoke-GraphRestMethodDelete(
     return Invoke-RestMethod -Uri "$GraphEndpoint/$path" -Headers $global:authHeader -Method "DELETE" -ContentType $ContentType -ErrorAction Stop
 }
 
-function Get-MSGraphAuthorizationHeader
+function Connect-AzADB2CClientCredentials
 (
     [Parameter(Mandatory=$false)][Alias('a')][string]$AppId = "", 
     [Parameter(Mandatory=$false)][Alias('k')][string]$AppKey = "",
@@ -64,6 +66,7 @@ function Get-MSGraphAuthorizationHeader
     $authHeader = @{'Authorization'="$($oauth.token_type) $($oauth.access_token)"} 
     $global:authHeader = $authHeader
     $global:token_expires_on = $oauth.expires_on
+    $global:authMethod = "Connect-AzADB2CClientCredentials"
     return $authHeader
 }
 
@@ -217,8 +220,6 @@ function Connect-AzADB2C
     $TotalTime = ($finishTime - $startTime).TotalSeconds
     write-host "Time: $TotalTime sec(s)"        
     
-    write-host $account
-
     # get objectId of current user
     $accessToken = (Get-AzAccessToken -TenantId $TenantId).Token
     $part1=$accessToken.Split(".")[1]
@@ -251,7 +252,7 @@ function Connect-AzADB2C
         write-host "B2C Tenant     :`t$tenantID, $tenantName"
         write-host "B2C Client Cred:`t$($env:B2CAppId), $($app.DisplayName)"
     }    
-    $authHeader = Get-MSGraphAuthorizationHeader -Scope "https://graph.microsoft.com/.default"    
+    $authHeader = Connect-AzADB2CClientCredentials -Scope "https://graph.microsoft.com/.default"    
 }
 
 <#
@@ -1097,32 +1098,31 @@ function Test-AzADB2CPolicy
     RefreshTokenIfExpired
 
     write-host "Getting test app $WebAppName"
-    $app = Get-AzADApplication -DisplayNameStartWith $WebAppName -ErrorAction SilentlyContinue
-    
-    if ( $null -eq $app ) {
-        write-error "App isn't registered: $WebAppName"
+    $app = Invoke-GraphRestMethodGet "applications?`$filter=startswith(displayName,'$WebAppName')"    
+    if ( $app.value.Length -eq 0 ) {
+        write-error "App name isn't registered: $WebAppName"
         return
     }
-    if ( $app.Count -gt 1 ) {
-        $app = ($app | where {$_.DisplayName -eq $WebAppName})
+    if ( $app.value.Length -gt 1 ) {
+        $app = $app.value | where {$_.DisplayName -eq $WebAppName}
+    } else {
+        $app = $app.value[0]
     }
-    if ( $app.Count -gt 1 ) {
-        write-error "App name isn't unique: $WebAppName"
-        return
-    }
-    
+    $sp = Invoke-GraphRestMethodGet "servicePrincipals?`$filter=appid eq '$($app.appid)'"    
+    $sp = $sp.value | where {$_.appid -eq $app.appid}
+
     $pgm, $params = Get-BrowserInfo -Chrome $Chrome -Edge $Edge -Firefox $Firefox -Incognito $Incognito -NewWindow $NewWindow
 
     if ( $isSAML) {
-        if ( 0 -eq $app.SamlMetadataUrl.Length ) {
+        if ( 0 -eq $sp.SamlMetadataUrl.Length ) {
             write-error "App has no SamlMetadataUrl set: $WebAppName"
             return
         }
-        if ( $app.IdentifierUris.Count -gt 1 ) {
-            $Issuer = ($app.IdentifierUris | where { $_ -imatch $hostName })
-            if ( $null -eq $Issuer) { $Issuer = ($app.IdentifierUris | where { $_ -imatch $tenantName })}
+        if ( $app.identifierUris.Count -gt 1 ) {
+            $Issuer = ($app.identifierUris | where { $_ -imatch $hostName })
+            if ( $null -eq $Issuer) { $Issuer = ($app.identifierUris | where { $_ -imatch $tenantName })}
         } else {
-            $Issuer = $app.IdentifierUris[0]
+            $Issuer = $app.identifierUris[0]
         }
 
         if ( $Metadata ) {
@@ -1147,7 +1147,7 @@ function Test-AzADB2CPolicy
             $Prompt = "" 
         }
         $qparams = "client_id={0}&nonce={1}&redirect_uri={2}&scope={3}&response_type={4}{5}&disable_cache=true" `
-                    -f $app.ApplicationId.Guid.ToString(), (New-Guid).Guid, $redirect_uri, $scope, $response_type, $Prompt
+                    -f $app.appid, (New-Guid).Guid, $redirect_uri, $scope, $response_type, $Prompt
         # Q&D urlencode
         $qparams = $qparams.Replace(":","%3A").Replace("/","%2F").Replace(" ", "%20") + $QueryString
     
@@ -1916,8 +1916,8 @@ function New-AzADB2CIdentityExperienceFrameworkApps
     $ProxyDisplayName = "Proxy$DisplayName"
 
     # check that they don't already exists
-    $iefApp = (Get-AzADApplication -DisplayName $DisplayName)
-    if ( $null -ne $iefApp ) {
+    $app = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$DisplayName')"    
+    if ( $app.value.Count -ge 1 ) {
         write-warning "App already exists $DisplayName - You have already configured Identity Experience Framework for this tenant"
         return
     }
@@ -2242,8 +2242,8 @@ function New-AzADB2CTestApp
     RefreshTokenIfExpired
     $tenantName = $global:tenantName
     # check that they don't already exists
-    $iefApp = (Get-AzADApplication -DisplayName $DisplayName)
-    if ( $null -ne $iefApp ) {
+    $app = Invoke-GraphRestMethodGet "applications?`$filter=displayName eq '$DisplayName')"    
+    if ( $app.value.Count -ge 1 ) {
         write-warning "App already exists $DisplayName"
         return
     }
@@ -3087,6 +3087,8 @@ function Connect-AzADB2CDevicelogin {
     $global:TenantID = Get-TenantIdFromName -TenantName $TenantName
     $global:tokens = $retval
     $global:authHeader =@{ 'Authorization'=$retval.token_type + ' ' + $retval.access_token }
+    $global:token_expires_on = $retval.expires_on
+    $global:authMethod = "Connect-AzADB2CDevicelogin"
 
     $part1=$retval.access_token.Split(".")[1]
     $fill = ""
@@ -3100,7 +3102,7 @@ function Connect-AzADB2CDevicelogin {
 
     $host.ui.RawUI.WindowTitle = "B2C $TenantShort - $user"
 
-    return $retVal
+    #return $retVal
 }
 <#
 .SYNOPSIS
