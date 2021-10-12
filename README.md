@@ -5,8 +5,20 @@ This github repo contains a set of powershell script that help you to quickly se
 ## Update
 The scripts have been updated to use the [Azure Az PowerShell module](https://docs.microsoft.com/en-us/powershell/azure/install-az-ps?view=azps-6.4.0) in order to get cross platform support. It no longer uses `Azure CLI` for MacOS/Linux platforms.
 
-For MacOS, you find instructions onhow to install [Powershell](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-macos?view=powershell-7) in this link.
+For **MacOS**, you find instructions on how to install Powershell in this [link](https://docs.microsoft.com/en-us/powershell/scripting/install/installing-powershell-core-on-macos?view=powershell-7).
 
+For **Linux**, you find instructions on how to install Powershell [here](https://linuxhint.com/install_powershell_ubuntu/). 
+
+Once you have `Powershell core` installed on your system, you need to install the `Azure Az` module. This works the same for Windows, Mac and Linux. 
+On Mac/Linux, you start powershell in a terminal by running the `pwsh` command.
+
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+if ($null -eq (get-module Az.Accounts)) {
+    Install-Module -Name Az.Accounts -Scope CurrentUser -Repository PSGallery -Force
+    Import-Module -Name Az.Accounts
+}
+```
 
 The powershell commands have changed naming convetion from `*-AzureADBC*` to `*-AzADB2C` and some commands have changed the verb, like `Connect-AzureADB2CEnv` is now named `Connect-AzADB2C`, and `Deploy-AzureADB2CPolicyToTenant` is now named `Import-AzADB2CPolicyToTenant`. 
 

@@ -148,10 +148,13 @@ function Start-Browser(
     [Parameter(Mandatory=$false)][string]$params, 
     [Parameter(Mandatory=$false)][string]$url
 ) {
-    $isMacOS = ($env:PATH -imatch "/usr/bin" )                 # Mac/Linux      
-    if ( $isMacOS ) {
-        $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
-    } else {
+    if ( $env:PATH -imatch "/usr/bin" ) {                      # Mac/Linux      
+        if ( $env:PATH -imatch "Apple" ) {                     # Mac
+            $ret = [System.Diagnostics.Process]::Start("/usr/bin/open","$url")
+        } else {
+            & xdg-open $url                                    # Linux
+        }
+    } else {                                                   # Windows
         $ret = [System.Diagnostics.Process]::Start($pgm,"$params $url")
     }
 }
