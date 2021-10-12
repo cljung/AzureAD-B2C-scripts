@@ -81,7 +81,7 @@ function Get-ServicePrincipal (
     [string]$Select = ""
 ) 
 {
-    $path = "?servicePrincipals`$filter=AppId eq '$AppId'"
+    $path = "servicePrincipals?`$filter=AppId eq '$AppId'"
     if ( $select.Length -gt 0 ) {
         $path += "&`$select=$select"
     }
@@ -339,6 +339,11 @@ function Get-AzADB2CStarterPack(
         DownloadFile "$urlStarterPackBase/$PolicyType/SignUpOrSignin.xml" $PolicyPath
         DownloadFile "$urlStarterPackBase/$PolicyType/PasswordReset.xml" $PolicyPath
         DownloadFile "$urlStarterPackBase/$PolicyType/ProfileEdit.xml" $PolicyPath
+        [xml]$tfe = Get-Content "$PolicyPath\TrustFrameworkExtensions.xml"
+        if ( $tfe.TrustFrameworkPolicy.BasePolicy.PolicyId -ne "B2C_1A_TrustFrameworkBase" ) {
+            $filename = $tfe.TrustFrameworkPolicy.BasePolicy.PolicyId.Replace("B2C_1A_", "")
+            DownloadFile "$urlStarterPackBase/$PolicyType/$filename.xml" $PolicyPath
+        }
     }
 }
 
