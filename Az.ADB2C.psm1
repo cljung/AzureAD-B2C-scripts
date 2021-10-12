@@ -74,7 +74,17 @@ function Get-Application (
     if ( $select.Length -gt 0 ) {
         $path += "$q`$select=$select"
     }
-    write-host $path
+    return Invoke-GraphRestMethodGet $path
+}
+function Get-ServicePrincipal (
+    [string]$AppId = "", 
+    [string]$Select = ""
+) 
+{
+    $path = "?servicePrincipals`$filter=AppId eq '$AppId'"
+    if ( $select.Length -gt 0 ) {
+        $path += "&`$select=$select"
+    }
     return Invoke-GraphRestMethodGet $path
 }
 function Connect-AzADB2CClientCredentials
@@ -1139,12 +1149,13 @@ function Test-AzADB2CPolicy
     } else {
         $app = $app.value[0]
     }
-    $sp = Invoke-GraphRestMethodGet "servicePrincipals?`$filter=appid eq '$($app.appid)'"    
-    $sp = $sp.value | where {$_.appid -eq $app.appid}
 
     $pgm, $params = Get-BrowserInfo -Chrome $Chrome -Edge $Edge -Firefox $Firefox -Incognito $Incognito -NewWindow $NewWindow
 
     if ( $isSAML) {
+        #$sp = Invoke-GraphRestMethodGet "servicePrincipals?`$filter=appid eq '$($app.appid)'"   
+        $sp = Get-ServicePrincipal $app.appid 
+        $sp = $sp.value | where {$_.appid -eq $app.appid}
         if ( 0 -eq $sp.SamlMetadataUrl.Length ) {
             write-error "App has no SamlMetadataUrl set: $WebAppName"
             return
@@ -1981,7 +1992,7 @@ function New-AzADB2CIdentityExperienceFrameworkApps
     $redirectUri = "https://$($global:TenantName.Split(".")[0]).b2clogin.com/$global:TenantName"
     $appIEF = Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris $redirectUri `
         -signInAudience "AzureADMyOrg" -requiredResourceAccess $req1 -oauth2PermissionScopes $oauth2PermissionScopes `
-        -WebApp -EnableIdTokenIssuance -Grant -SetOwner 
+        -WebApp -EnableIdTokenIssuance -EnableAccessTokenIssuance:$False -Grant -SetOwner 
 
     $req2 = @"
         $req1,
@@ -1997,7 +2008,7 @@ function New-AzADB2CIdentityExperienceFrameworkApps
 "@
     $appPIEF = Add-AzADB2CApplication -DisplayName $ProxyDisplayName -redirectUris $redirectUri `
         -signInAudience "AzureADMultipleOrgs" -requiredResourceAccess $req2 `
-        -PublicClient -EnableIdTokenIssuance -Grant -SetOwner
+        -PublicClient -EnableIdTokenIssuance -EnableAccessTokenIssuance:$False -Grant -SetOwner
 }
 
 <#
@@ -2192,7 +2203,8 @@ $bodySP = @"
         $expiryTime = ((get-date).AddYears(2)).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
         $scope = ""
         foreach( $reqResAccess in $app.RequiredResourceAccess ) { 
-            $resource = Invoke-GraphRestMethodGet "serviceprincipals?`$filter=AppId eq '$($reqResAccess.ResourceAppId)'&select=id,displayName,publishedPermissionScopes"
+            #$resource = Invoke-GraphRestMethodGet "serviceprincipals?`$filter=AppId eq '$($reqResAccess.ResourceAppId)'&select=id,displayName,publishedPermissionScopes"
+            $resource = Get-ServicePrincipal $reqResAccess.ResourceAppId -Select "id,displayName,publishedPermissionScopes"
             $ResourceObjectId = $resource.value.Id
             foreach( $ra in $reqResAccess.ResourceAccess ) {
                 $scope += ($resource.value[0].publishedPermissionScopes | where {$_.id -eq $ra.Id}).Value + " " 
@@ -2535,7 +2547,8 @@ Function New-AzADB2CGraphApp
 "@
 
     $app = Add-AzADB2CApplication -DisplayName $DisplayName -redirectUris "https://$DisplayName" -requiredResourceAccess $requiredResourceAccess `
-            -WebApp -EnableIdTokenIssuance 
+            -WebApp -signInAudience "AzureADMyOrg" -EnableIdTokenIssuance:$False -EnableAccessTokenIssuance:$False
+
     write-host "AppID`t`t$($app.AppId)`nObjectID:`t$($app.Id)"
 
     write-host "`nCreating App Key / Secret / client_secret - please remember this value and keep it safe"
@@ -2588,20 +2601,24 @@ Function New-AzADB2CGraphApp
     Password for user. If not specified it will be prompted for
 
 .PARAMETER RoleNames
-    Collection of roles to grant the user, such as @("Directory Readers", "Directory Writers", "Company Administrator")
+    Collection of roles to grant the user, such as @("Directory Readers", "Directory Writers", "Global Administrator").
+    If you specify an empty array @(), the user will be just a local account
 
 .EXAMPLE
     New-AzADB2CLocalAdmin
 
 .EXAMPLE
-    New-AzADB2CLocalAdmin -DisplayName "Bob Contoso Admin" -username "bob"
+    New-AzADB2CLocalAdmin -DisplayName "Bob Contoso Admin" -username "bob" -RoleNames @("Global Administrator")
+
+.EXAMPLE
+    New-AzADB2CLocalAdmin -DisplayName "Bob Contoso" -username "bob" -RoleNames @()
 #>
 Function New-AzADB2CLocalAdmin
 (
     [Parameter(Mandatory=$false)][Alias('d')][string]$displayName = "GraphExplorer",
     [Parameter(Mandatory=$false)][Alias('u')][string]$username = "graphexplorer",
     [Parameter(Mandatory=$false)][Alias('p')][string]$Password = "",
-    [Parameter(Mandatory=$false)][Alias('r')][string[]]$RoleNames = @("Directory Readers", "Directory Writers") # @("Company Administrator") for Global Admin
+    [Parameter(Mandatory=$false)][Alias('r')][string[]]$RoleNames = @("Directory Readers", "Directory Writers") # @("Global Administrator")
 )
 {
     $tenantName = $global:tenantName
@@ -2611,14 +2628,20 @@ Function New-AzADB2CLocalAdmin
         $cred = Get-Credential -UserName $DisplayName -Message "Enter userid for $TenantName"
         $Password = $cred.GetNetworkCredential().Password
     }
-
+    if ( $username.Contains("@") ) {
+        $email = $username
+        $mailNickname = $username.Split("@")[0]
+    } else {
+        $email = "$username@$($global:tenantName)"
+        $mailNickname = $username
+    }
  $body = @"
         {
           "accountEnabled": true,
           "creationType": "LocalAccount",
           "userType": "Member",
           "displayName": "$displayName",
-          "mailNickname": "$username",
+          "mailNickname": "$mailNickname",
           "passwordPolicies": "DisablePasswordExpiration,DisableStrongPassword",
           "passwordProfile": {
             "password": "$password",
@@ -2628,7 +2651,7 @@ Function New-AzADB2CLocalAdmin
             {
               "signInType": "emailAddress",
               "issuer": "$global:tenantName",
-              "issuerAssignedId": "$username@$($global:tenantName)"
+              "issuerAssignedId": "$email"
             }
           ]
         }
@@ -3060,6 +3083,10 @@ function Connect-AzADB2CDevicelogin {
 
     Function IIf($If, $Right, $Wrong) {If ($If) {$Right} Else {$Wrong}}
     
+    if ( $TenantName -ne "common" -and ($TenantName -imatch ".onmicrosoft.com") -eq $false ) {
+        $TenantName = $TenantName + ".onmicrosoft.com"
+    }
+
     if ( !($Scope -imatch "offline_access") ) { $Scope += " offline_access"} # make sure we get a refresh token
     $retVal = $null
     $url = "https://microsoft.com/devicelogin"

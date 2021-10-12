@@ -102,7 +102,7 @@ In order to be able to upload your B2C Custom Policies, you would need to specif
 Connect-AzADB2CDevicelogin -TenantName "yourtenant.onmicrosoft.com" -Scope "Application.Read.All Policy.ReadWrite.TrustFramework"
 ```
 
-## Create a B2C Custom Policy project based on the B2C Starter Pack
+## Create a new B2C Custom Policy project
 Azure AD B2C Custom Policies has a starter pack of configuration files located in this [github repo](https://github.com/Azure-Samples/active-directory-b2c-custom-policy-starterpack). When you work with B2C Custom Policies, you normally download the Starter Pack of choice and open them in a text editor to make your configuration modifications. All this work has been compacted in to one powershell command that will do all this for you.
 
 By running it with the `-PolicyPrefix` parameter, you will modify the PolicyId to become `B2C_1A_demo_TrustFrameworkExtension`, etc, which helps you having multiple policies in one tenant. 
@@ -135,6 +135,22 @@ If you are in a dev/test cycle and want to speed up testing of your changes, you
     "TestAppName": "ABC-WebApp",
     "SAMLTestAppName": "samltestapp2",
 ```
+
+### Quickly create a test user
+You can either user the B2C policy's signup functionality to create a test user or create one using the powershell command below. By specifying an empty role, you will create a B2C Local Account just as you would using the signup functionality in the user journey.
+
+```powershell
+New-AzADB2CLocalAdmin -u "alice@contoso.com" -DisplayName "Alice Contoso" -RoleNames @()
+```
+
+## Add a desktop link to 
+If you want to create a Desktop link to launch a powershell window with the module already imported, you create a new link and specify the following.
+
+| Command       | Description                                |
+|-------------------|--------------------------------------------|
+| Target | %SystemRoot%\system32\WindowsPowerShell\v1.0\powershell.exe -noexit -command import-module .\Az.ADB2C.psm1 |
+| Start in | %USERPROFILE%\src\b2c\scripts |
+
 ## List of Commands
 
 See Get-Help <command> for details
